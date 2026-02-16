@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Buy Business Class</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .sidebar { background-color: #0B1221; }
+        .gold-accent { color: #C5A358; }
+        .gold-bg { background-color: #C5A358; }
+        .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
+        .toggle-bg { background-color: #D1D5DB; transition: background-color 0.2s; }
+        .toggle-bg.active { background-color: #C5A358; }
+        .toggle-dot { transition: transform 0.2s; }
+        .toggle-bg.active .toggle-dot { transform: translateX(100%); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="sidebar w-64 flex-shrink-0 flex flex-col text-gray-400">
+        <div class="p-6 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                    <span class="text-black font-bold text-xs italic">B</span>
+                </div>
+                <div class="leading-tight">
+                    <p class="text-white text-xs font-bold tracking-widest">BUY BUSINESS</p>
+                    <p class="text-white text-xs font-bold tracking-widest">CLASS</p>
+                </div>
+            </div>
+            <span class="gold-bg text-black text-[10px] px-2 py-0.5 rounded-full font-bold">Admin</span>
+        </div>
+        <nav class="flex-1 px-4 mt-4 space-y-1">
+            <a href="index.html" class="nav-link flex items-center space-x-3 hover:text-white px-3 py-2 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span class="text-sm font-medium">Dashboard</span>
+            </a>
+            <a href="conversations.html" class="nav-link flex items-center space-x-3 hover:text-white px-3 py-2 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                <span class="text-sm font-medium">Conversations</span>
+            </a>
+            <a href="leads.html" class="nav-link flex items-center space-x-3 hover:text-white px-3 py-2 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <span class="text-sm font-medium">Leads</span>
+            </a>
+            <a href="kb.html" class="nav-link flex items-center space-x-3 hover:text-white px-3 py-2 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                <span class="text-sm font-medium">Knowledge Base</span>
+            </a>
+            <a href="settings.html" class="nav-link flex items-center space-x-3 bg-gray-800 text-white px-3 py-2 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="text-sm font-medium">Settings</span>
+            </a>
+        </nav>
+        <div class="p-6 flex items-center space-x-3">
+            <div class="w-10 h-10 gold-bg text-black rounded-full flex items-center justify-center font-bold">SC</div>
+            <div>
+                <p class="text-white text-sm font-semibold">Scaler</p>
+                <p class="text-xs">Admin</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+                <p class="text-sm text-gray-400 font-medium">Configure your AI chatbot and admin panel</p>
+            </div>
+            <button id="saveAllBtn" class="gold-bg text-black px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center hover:opacity-90 transition">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                Save All Changes
+            </button>
+        </header>
+
+        <div class="space-y-6">
+
+            <!-- AI Chatbot Configuration -->
+            <div class="bg-white rounded-xl card-shadow border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-gray-800 text-sm">AI Chatbot Configuration</h2>
+                            <p class="text-[11px] text-gray-400">Configure how your chatbot behaves and responds</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="chatbotForm" class="p-6 space-y-5">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Bot Name</label>
+                            <input type="text" name="botName" value="BBC Assistant" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response Language</label>
+                            <select name="language" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 bg-white">
+                                <option value="en" selected>English</option>
+                                <option value="ro">Romanian</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="es">Spanish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Welcome Message</label>
+                        <textarea name="welcomeMessage" rows="3" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 resize-none">Hello! Welcome to Buy Business Class. I'm here to help you find the best business class flights. How can I assist you today?</textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Max Response Length</label>
+                            <input type="number" name="maxTokens" value="500" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Temperature (Creativity)</label>
+                            <input type="number" name="temperature" value="0.7" step="0.1" min="0" max="2" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lead Capture Settings -->
+            <div class="bg-white rounded-xl card-shadow border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-gray-800 text-sm">Lead Capture Settings</h2>
+                            <p class="text-[11px] text-gray-400">Manage how leads are captured and scored</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="leadForm" class="p-6 space-y-5">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between py-3 border-b border-gray-50">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">Auto-capture leads</p>
+                                <p class="text-xs text-gray-400">Automatically capture visitor info when intent is detected</p>
+                            </div>
+                            <button type="button" class="toggle-btn toggle-bg active w-12 h-6 rounded-full relative cursor-pointer" data-setting="autoCapture">
+                                <span class="toggle-dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between py-3 border-b border-gray-50">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">Email notifications</p>
+                                <p class="text-xs text-gray-400">Send email when a new lead is captured</p>
+                            </div>
+                            <button type="button" class="toggle-btn toggle-bg active w-12 h-6 rounded-full relative cursor-pointer" data-setting="emailNotif">
+                                <span class="toggle-dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between py-3 border-b border-gray-50">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">Lead scoring</p>
+                                <p class="text-xs text-gray-400">Assign scores based on engagement and intent signals</p>
+                            </div>
+                            <button type="button" class="toggle-btn toggle-bg active w-12 h-6 rounded-full relative cursor-pointer" data-setting="leadScoring">
+                                <span class="toggle-dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between py-3">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">CRM integration</p>
+                                <p class="text-xs text-gray-400">Sync leads with your CRM (Salesforce, HubSpot)</p>
+                            </div>
+                            <button type="button" class="toggle-btn toggle-bg w-12 h-6 rounded-full relative cursor-pointer" data-setting="crmSync">
+                                <span class="toggle-dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 pt-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Minimum Score Threshold</label>
+                            <input type="number" name="minScore" value="60" min="0" max="100" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Notification Email</label>
+                            <input type="email" name="notifEmail" value="admin@buybusinessclass.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Appearance Settings -->
+            <div class="bg-white rounded-xl card-shadow border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-gray-800 text-sm">Appearance & Branding</h2>
+                            <p class="text-[11px] text-gray-400">Customize the chatbot widget appearance</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="appearanceForm" class="p-6 space-y-5">
+                    <div class="grid grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Primary Color</label>
+                            <div class="flex items-center space-x-3">
+                                <input type="color" name="primaryColor" value="#C5A358" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
+                                <input type="text" value="#C5A358" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Background Color</label>
+                            <div class="flex items-center space-x-3">
+                                <input type="color" name="bgColor" value="#0B1221" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
+                                <input type="text" value="#0B1221" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Widget Position</label>
+                            <select name="position" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none bg-white">
+                                <option value="bottom-right" selected>Bottom Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="top-right">Top Right</option>
+                                <option value="top-left">Top Left</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Chat Window Title</label>
+                            <input type="text" name="windowTitle" value="Buy Business Class" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Font Family</label>
+                            <select name="fontFamily" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none bg-white">
+                                <option value="Inter" selected>Inter</option>
+                                <option value="Roboto">Roboto</option>
+                                <option value="Open Sans">Open Sans</option>
+                                <option value="Poppins">Poppins</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- API & Integration -->
+            <div class="bg-white rounded-xl card-shadow border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-gray-800 text-sm">API & Integration</h2>
+                            <p class="text-[11px] text-gray-400">Manage API keys and third-party integrations</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="apiForm" class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="password" name="apiKey" value="sk-bbc-xxxxxxxxxxxxxxxxxxxx" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 bg-gray-50 font-mono">
+                            <button type="button" id="toggleApiKey" class="px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Show</button>
+                            <button type="button" class="px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition">Regenerate</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Webhook URL</label>
+                        <input type="url" name="webhookUrl" placeholder="https://your-domain.com/webhook" class="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Embed Code</label>
+                        <div class="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 leading-relaxed">
+                            <code>&lt;script src="https://cdn.buybusinessclass.com/widget.js"&gt;&lt;/script&gt;<br>&lt;script&gt;BBCWidget.init({ key: 'your-api-key' });&lt;/script&gt;</code>
+                        </div>
+                        <button type="button" id="copyEmbed" class="mt-2 text-xs text-blue-500 font-medium hover:text-blue-600 transition">Copy to clipboard</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="bg-white rounded-xl card-shadow border border-red-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-red-100 bg-red-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-red-700 text-sm">Danger Zone</h2>
+                            <p class="text-[11px] text-red-400">Irreversible actions</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">Clear all conversations</p>
+                            <p class="text-xs text-gray-400">Permanently delete all conversation history</p>
+                        </div>
+                        <button type="button" id="clearConversations" class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition">Clear Data</button>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-gray-50 pt-4">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">Reset all settings</p>
+                            <p class="text-xs text-gray-400">Restore all settings to default values</p>
+                        </div>
+                        <button type="button" id="resetSettings" class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition">Reset</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/data.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
