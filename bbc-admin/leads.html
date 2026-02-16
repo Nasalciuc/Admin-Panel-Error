@@ -17,9 +17,9 @@
         .nav-active { background-color: #1E293B; color: white; border-left: 3px solid #C9A54E; }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="h-screen overflow-hidden">
 
-    <aside class="sidebar w-64 flex-shrink-0 flex flex-col text-gray-400">
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 flex flex-col text-gray-400 overflow-y-auto z-40">
         <div class="p-6 flex items-center justify-between">
             <div class="flex items-center space-x-2">
                 <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
@@ -63,7 +63,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 overflow-y-auto p-8">
+    <main class="ml-64 flex-1 overflow-y-auto p-8">
         <header class="flex justify-between items-center mb-6">
             <div class="flex items-center space-x-3">
                 <h1 class="text-2xl font-bold text-gray-900">Captured Leads</h1>
@@ -123,7 +123,7 @@
                             <td class="px-6 py-4 text-gray-500">john.t...@email.com</td>
                             <td class="px-6 py-4 text-gray-500 text-xs">+1 555-0192</td>
                             <td class="px-6 py-4 text-gray-500 font-medium">NYC → LHR</td>
-                            <td class="px-6 py-4"><span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-md text-[11px] font-medium">Flight Booking</span></td>
+                            <td class="px-6 py-4"><span class="bg-blue-900 bg-opacity-10 text-blue-900 px-3 py-1 rounded-full text-[11px] font-medium">Flight Booking</span></td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center space-x-1.5 bg-yellow-500 text-white px-2 py-0.5 rounded-full w-fit">
                                     <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
@@ -142,7 +142,7 @@
                             <td class="px-6 py-4 text-gray-500">sarah.c...@email.com</td>
                             <td class="px-6 py-4 text-gray-500 text-xs">+1 555-1234</td>
                             <td class="px-6 py-4 text-gray-500 font-medium">LAX → NRT</td>
-                            <td class="px-6 py-4"><span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-md text-[11px] font-medium">Price Inquiry</span></td>
+                            <td class="px-6 py-4"><span class="bg-blue-900 bg-opacity-10 text-blue-900 px-3 py-1 rounded-full text-[11px] font-medium">Price Inquiry</span></td>
                             <td class="px-6 py-4 text-gray-400 font-bold">78</td>
                             <td class="px-6 py-4"><span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase">Contacted</span></td>
                             <td class="px-6 py-4 text-gray-400 text-xs">15 min ago</td>
@@ -156,7 +156,7 @@
                             <td class="px-6 py-4 text-gray-500">michael.d...@email.com</td>
                             <td class="px-6 py-4 text-gray-500 text-xs">+1 555-9876</td>
                             <td class="px-6 py-4 text-gray-500 font-medium">ORD → CDG</td>
-                            <td class="px-6 py-4"><span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-md text-[11px] font-medium">Route Information</span></td>
+                            <td class="px-6 py-4"><span class="bg-blue-900 bg-opacity-10 text-blue-900 px-3 py-1 rounded-full text-[11px] font-medium">Route Information</span></td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center space-x-1.5 bg-yellow-500 text-white px-2 py-0.5 rounded-full w-fit">
                                     <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
@@ -175,7 +175,7 @@
                             <td class="px-6 py-4 text-gray-500">emily.w...@email.com</td>
                             <td class="px-6 py-4 text-gray-500 text-xs">+1 555-5678</td>
                             <td class="px-6 py-4 text-gray-500 font-medium">MIA → DXB</td>
-                            <td class="px-6 py-4"><span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-md text-[11px] font-medium">Flight Booking</span></td>
+                            <td class="px-6 py-4"><span class="bg-blue-900 bg-opacity-10 text-blue-900 px-3 py-1 rounded-full text-[11px] font-medium">Flight Booking</span></td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center space-x-1.5 bg-yellow-500 text-white px-2 py-0.5 rounded-full w-fit">
                                     <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
