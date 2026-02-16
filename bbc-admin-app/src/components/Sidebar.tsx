@@ -1,16 +1,16 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  MessageSquare,
   Users,
+  MessageSquare,
   BookOpen,
   Settings,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/conversations', label: 'Conversations', icon: MessageSquare },
   { to: '/leads', label: 'Leads', icon: Users },
+  { to: '/conversations', label: 'Conversations', icon: MessageSquare },
   { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
