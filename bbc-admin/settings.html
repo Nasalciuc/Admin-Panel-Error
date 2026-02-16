@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Buy Business Class</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
-        .sidebar { background-color: #0B1221; }
-        .gold-accent { color: #C5A358; }
-        .gold-bg { background-color: #C5A358; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .sidebar { background-color: #0B1829; }
+        .gold-accent { color: #C9A54E; }
+        .gold-bg { background-color: #C9A54E; }
         .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
         .toggle-bg { background-color: #D1D5DB; transition: background-color 0.2s; }
-        .toggle-bg.active { background-color: #C5A358; }
+        .toggle-bg.active { background-color: #C9A54E; }
         .toggle-dot { transition: transform 0.2s; }
         .toggle-bg.active .toggle-dot { transform: translateX(100%); }
     </style>
@@ -209,15 +210,15 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Primary Color</label>
                             <div class="flex items-center space-x-3">
-                                <input type="color" name="primaryColor" value="#C5A358" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
-                                <input type="text" value="#C5A358" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
+                                <input type="color" name="primaryColor" value="#C9A54E" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
+                                <input type="text" value="#C9A54E" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Background Color</label>
                             <div class="flex items-center space-x-3">
-                                <input type="color" name="bgColor" value="#0B1221" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
-                                <input type="text" value="#0B1221" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
+                                <input type="color" name="bgColor" value="#0B1829" class="w-10 h-10 rounded border border-gray-200 cursor-pointer">
+                                <input type="text" value="#0B1829" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" readonly>
                             </div>
                         </div>
                         <div>
