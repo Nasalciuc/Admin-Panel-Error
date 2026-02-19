@@ -1,6 +1,6 @@
 import React from 'react';
 
-type Variant = 'intent' | 'status' | 'score';
+type Variant = 'intent' | 'status' | 'score' | 'gold' | 'emerald' | 'sales' | 'support';
 
 interface BadgeProps {
   label: string;
@@ -29,7 +29,22 @@ const statusColors: Record<string, string> = {
   Closed: 'bg-gray-100 text-gray-600',
 };
 
+const variantStyles: Record<string, string> = {
+  gold: 'bg-amber-50 text-amber-700 border border-amber-200',
+  emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  sales: 'bg-amber-50 text-amber-700 border border-amber-200',
+  support: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+};
+
 export const Badge: React.FC<BadgeProps> = ({ label, variant, className = '' }) => {
+  if (variant === 'gold' || variant === 'emerald' || variant === 'sales' || variant === 'support') {
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${variantStyles[variant]} ${className}`}>
+        {label}
+      </span>
+    );
+  }
+
   if (variant === 'score') {
     const num = parseInt(label, 10);
     const isHigh = num >= 80;

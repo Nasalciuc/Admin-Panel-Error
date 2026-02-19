@@ -1,7 +1,7 @@
 // ── BBC Admin — localStorage CRUD Store ──────────────────────────
 // Single persistence layer. Swap to API calls in V2.
 
-import type { Lead, Conversation, Message, KBCategory, KBEntry } from '../types';
+import type { Lead, Conversation, Message, KBCategory, KBEntry, Agent, AppSettings, DashboardStats } from '../types';
 
 const KEYS = {
   leads: 'bbc_leads',
@@ -159,6 +159,70 @@ function seed(): void {
   write(KEYS.leads, leads);
   write(KEYS.conversations, conversations);
   write(KEYS.kb, kb);
+
+  // Seed agents
+  const agents: Agent[] = [
+    {
+      id: uid(), name: 'Sarah Mitchell', initials: 'SM', email: 'sarah@buybusinessclass.com',
+      status: 'online', tunnel: 'sales', activeConversations: 2, lastActive: new Date().toISOString(),
+      avatarColor: 'bg-emerald-100 text-emerald-700',
+    },
+    {
+      id: uid(), name: 'James Cooper', initials: 'JC', email: 'james@buybusinessclass.com',
+      status: 'offline', tunnel: 'support', activeConversations: 0, lastActive: new Date(Date.now() - 3600000).toISOString(),
+      avatarColor: 'bg-blue-100 text-blue-700',
+    },
+    {
+      id: uid(), name: 'Maria Rodriguez', initials: 'MR', email: 'maria@buybusinessclass.com',
+      status: 'online', tunnel: 'both', activeConversations: 1, lastActive: new Date().toISOString(),
+      avatarColor: 'bg-purple-100 text-purple-700',
+    },
+  ];
+  write('bbc_agents', agents);
+
+  // Add phone/tags/source to existing leads (update first 4 leads to have phones)
+  const seededLeads = read<Lead[]>(KEYS.leads) || [];
+  if (seededLeads.length >= 4) {
+    seededLeads[0].phone = '+1-212-555-0147';
+    seededLeads[0].tags = ['hot', 'returning'];
+    seededLeads[0].leadSource = 'chat_sales';
+    seededLeads[1].phone = '+1-310-555-0298';
+    seededLeads[1].tags = ['corporate'];
+    seededLeads[1].leadSource = 'chat_sales';
+    seededLeads[2].phone = '';
+    seededLeads[2].tags = ['first-time'];
+    seededLeads[2].leadSource = 'chat_support';
+    seededLeads[3].phone = '+44-20-7946-0958';
+    seededLeads[3].tags = ['vip', 'corporate'];
+    seededLeads[3].leadSource = 'chat_sales';
+    // Rest default
+    seededLeads.forEach(l => {
+      if (!l.tags) l.tags = [];
+      if (!l.leadSource) l.leadSource = 'manual';
+    });
+    write(KEYS.leads, seededLeads);
+  }
+
+  // Add a conversation with routeCard
+  const seededConvs = read<Conversation[]>(KEYS.conversations) || [];
+  if (seededConvs.length > 0 && seededConvs[0].messages.length > 1) {
+    // Add routeCard to second AI message of first conversation
+    const aiMsg = seededConvs[0].messages.find(m => m.role === 'ai' && !m.routeCard);
+    if (aiMsg) {
+      aiMsg.routeCard = {
+        route: 'NYC → London',
+        originCode: 'JFK',
+        destinationCode: 'LHR',
+        duration: '7h 15m',
+        airlines: ['British Airways', 'Virgin Atlantic', 'Delta'],
+        dates: 'March 15, 2026',
+        priceRange: '$2,800 – $5,200',
+        isNonStop: true,
+      };
+      write(KEYS.conversations, seededConvs);
+    }
+  }
+
   localStorage.setItem(KEYS.seeded, 'true');
 }
 
@@ -294,19 +358,124 @@ export function deleteKBEntry(categoryId: string, entryId: string): boolean {
 
 // ── DASHBOARD ────────────────────────────────────────────────────
 
-export function getDashboardStats() {
+export function getDashboardStats(): DashboardStats {
   const convs = getConversations();
   const leads = getLeads();
   const kb = getKBCategories();
   const totalEntries = kb.reduce((sum, c) => sum + c.entries.length, 0);
-  const maxEntries = kb.length * 5;
+  const maxEntries = Math.max(kb.length * 5, 1);
+
+  // Leads this week
+  const weekAgo = Date.now() - 7 * 86400000;
+  const leadsThisWeek = leads.filter(l => new Date(l.capturedAt).getTime() > weekAgo).length;
+
+  // Conversion rate
+  const converted = leads.filter(l => l.status === 'Converted').length;
+  const conversionRate = leads.length > 0 ? `${Math.round((converted / leads.length) * 100)}%` : '0%';
+
+  // Top route
+  const routeCount: Record<string, number> = {};
+  leads.forEach(l => { if (l.route) routeCount[l.route] = (routeCount[l.route] || 0) + 1; });
+  const topRoute = Object.entries(routeCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+  // Leads by day (last 7 days)
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const leadsByDay: { day: string; count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const count = leads.filter(l => {
+      const t = new Date(l.capturedAt).getTime();
+      return t >= dayStart && t < dayEnd;
+    }).length;
+    leadsByDay.push({ day: dayNames[d.getDay()], count });
+  }
+
+  // Tunnel split
+  const sales = convs.filter(c => c.type === 'SALES').length;
+  const support = convs.filter(c => c.type === 'SUPPORT').length;
 
   return {
     totalConversations: convs.length,
+    activeConversations: convs.filter(c => c.status === 'Active').length,
     leadsCount: leads.length,
-    // TODO: Calculate from real response times when backend is connected
-    // For V1 localStorage, we don't track timestamps per message
+    leadsThisWeek,
     avgResponse: '1.8s',
-    kbCoverage: maxEntries > 0 ? `${Math.round((totalEntries / maxEntries) * 100)}%` : '0%',
+    kbCoverage: `${Math.round((totalEntries / maxEntries) * 100)}%`,
+    conversionRate,
+    topRoute,
+    leadsByDay,
+    tunnelSplit: { sales, support },
   };
+}
+
+// ── AGENTS ───────────────────────────────────────────────────────
+
+export function getAgents(): Agent[] {
+  return read<Agent[]>('bbc_agents') || [];
+}
+
+export function getOnlineAgents(tunnel?: string): Agent[] {
+  let agents = getAgents().filter(a => a.status === 'online');
+  if (tunnel) agents = agents.filter(a => a.tunnel === tunnel || a.tunnel === 'both');
+  return agents;
+}
+
+export function updateAgentStatus(id: string, status: Agent['status']): boolean {
+  const agents = getAgents();
+  const idx = agents.findIndex(a => a.id === id);
+  if (idx === -1) return false;
+  agents[idx] = { ...agents[idx], status, lastActive: new Date().toISOString() };
+  write('bbc_agents', agents);
+  return true;
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS: AppSettings = {
+  companyName: 'Buy Business Class',
+  widgetPosition: 'bottom-right',
+  salesGreeting: 'Welcome aboard! Where are you looking to fly in business class?',
+  supportGreeting: 'Hi! I can help with booking changes, cancellations, or questions about your trip.',
+  businessHoursStart: '09:00',
+  businessHoursEnd: '18:00',
+  businessTimezone: 'America/New_York',
+  autoReplyAfterHours: true,
+  afterHoursMessage: 'Our specialists are available 9 AM – 6 PM EST. Leave your number and we\'ll reach out first thing tomorrow.',
+  maxAIMessagesPerConv: 20,
+  aiModel: 'haiku',
+  enableLeadNotifications: true,
+  enableSlackNotifications: false,
+  slackWebhookUrl: '',
+};
+
+export function getSettings(): AppSettings {
+  return { ...DEFAULT_SETTINGS, ...read<Partial<AppSettings>>('bbc_settings') };
+}
+
+export function updateSettings(updates: Partial<AppSettings>): AppSettings {
+  const current = getSettings();
+  const next = { ...current, ...updates };
+  write('bbc_settings', next);
+  return next;
+}
+
+// ── CONVERSATIONS ENHANCED ───────────────────────────────────────
+
+export function closeConversation(id: string): boolean {
+  const convs = getConversations();
+  const idx = convs.findIndex(c => c.id === id);
+  if (idx === -1) return false;
+  convs[idx].status = 'Closed';
+  write(KEYS.conversations, convs);
+  return true;
+}
+
+export function getConversationsByStatus(status: string): Conversation[] {
+  return getConversations().filter(c => c.status === status);
+}
+
+export function getConversationsByType(type: 'SALES' | 'SUPPORT'): Conversation[] {
+  return getConversations().filter(c => c.type === type);
 }

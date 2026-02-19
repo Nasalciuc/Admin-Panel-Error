@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Users, Zap, BookOpen, ArrowRight } from 'lucide-react';
 import { StatCard } from '../../../shared/components/StatCard';
 import { Badge } from '../../../shared/components/Badge';
-import { getDashboardStats, getConversations, getLeads, getKBCategories } from '../../../shared/store';
+import { Avatar } from '../../../shared/components/Avatar';
+import { ScoreBadge } from '../../../shared/components/ScoreBadge';
+import { useDashboard } from '../../../shared/hooks/useDashboard';
+import { getConversations, getLeads, getKBCategories } from '../../../shared/store';
 
 const Dashboard: React.FC = () => {
-  const stats = getDashboardStats();
+  const { stats } = useDashboard();
   const conversations = getConversations().slice(0, 5);
   const leads = getLeads().slice(0, 5);
   const kb = getKBCategories();
@@ -20,12 +23,70 @@ const Dashboard: React.FC = () => {
         <p className="text-sm text-gray-500 mt-1">Overview of your chatbot performance</p>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={<MessageSquare className="w-5 h-5" />} label="Conversations" value={stats.totalConversations} highlight />
         <StatCard icon={<Users className="w-5 h-5" />} label="Leads Captured" value={stats.leadsCount} />
         <StatCard icon={<Zap className="w-5 h-5" />} label="Avg Response" value={stats.avgResponse} />
         <StatCard icon={<BookOpen className="w-5 h-5" />} label="KB Coverage" value={stats.kbCoverage} />
+      </div>
+
+      {/* KPI Cards - Row 2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={<MessageSquare className="w-5 h-5" />} label="Active Chats" value={stats.activeConversations} />
+        <StatCard icon={<Users className="w-5 h-5" />} label="Leads This Week" value={stats.leadsThisWeek} />
+        <StatCard icon={<Zap className="w-5 h-5" />} label="Conversion Rate" value={stats.conversionRate} />
+        <StatCard icon={<BookOpen className="w-5 h-5" />} label="Top Route" value={stats.topRoute} />
+      </div>
+
+      {/* Leads by Day Chart */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h2 className="text-base font-semibold text-gray-900 font-display mb-4">Leads Captured (Last 7 Days)</h2>
+        <div className="grid grid-cols-7 gap-2">
+          {stats.leadsByDay.map((entry, i) => (
+            <div key={i} className="flex flex-col items-center">
+              <div className="relative w-full h-16 bg-gray-100 rounded-lg flex items-end justify-center mb-2">
+                <div
+                  className="w-3/4 bg-[var(--color-navy-900)] rounded-t transition-all"
+                  style={{ height: `${(entry.count / Math.max(...stats.leadsByDay.map(e => e.count), 5)) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-gray-600 font-medium">{entry.day}</span>
+              <span className="text-xs text-gray-400">{entry.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tunnel Split */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h2 className="text-base font-semibold text-gray-900 font-display mb-4">Conversation Tunnel Split</h2>
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-700">Sales</span>
+              <span className="text-sm font-semibold text-gray-900">{stats.tunnelSplit.sales}</span>
+            </div>
+            <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full bg-[var(--color-gold-500)] transition-all"
+                style={{ width: `${stats.tunnelSplit.sales + stats.tunnelSplit.support > 0 ? (stats.tunnelSplit.sales / (stats.tunnelSplit.sales + stats.tunnelSplit.support)) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-700">Support</span>
+              <span className="text-sm font-semibold text-gray-900">{stats.tunnelSplit.support}</span>
+            </div>
+            <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${stats.tunnelSplit.sales + stats.tunnelSplit.support > 0 ? (stats.tunnelSplit.support / (stats.tunnelSplit.sales + stats.tunnelSplit.support)) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -48,9 +109,7 @@ const Dashboard: React.FC = () => {
                 className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold shrink-0">
-                    {conv.visitorName.split(' ').map(w => w[0]).join('').slice(0, 2)}
-                  </div>
+                  <Avatar name={conv.visitorName} size="sm" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{conv.visitorName}</p>
                     <p className="text-xs text-gray-500 truncate">{conv.intent}</p>
@@ -80,9 +139,7 @@ const Dashboard: React.FC = () => {
             {leads.map(lead => (
               <div key={lead.id} className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${lead.avatarColor}`}>
-                    {lead.initials}
-                  </div>
+                  <Avatar name={lead.name} size="sm" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
                     <p className="text-xs text-gray-500 truncate">{lead.route}</p>
@@ -90,15 +147,13 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge label={lead.intent} variant="intent" />
-                  <Badge label={String(lead.score)} variant="score" />
+                  <ScoreBadge score={lead.score} />
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-
-      {/* KB Coverage */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900 font-display">Knowledge Base Coverage</h2>

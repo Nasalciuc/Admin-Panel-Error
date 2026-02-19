@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, User, Bot, Headphones, Clock, Mail, Plane, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Send, User, Bot, Headphones, CheckCircle2 } from 'lucide-react';
 import { useConversations } from '../../../shared/hooks/useConversations';
 import { Badge } from '../../../shared/components/Badge';
-import type { Message } from '../../../shared/types';
+import { Avatar } from '../../../shared/components/Avatar';
+import { ScoreBadge } from '../../../shared/components/ScoreBadge';
+import { RouteCardDisplay } from '../../../shared/components/RouteCardDisplay';
+import { closeConversation, getLeads } from '../../../shared/store';
 
 const ROLE_CONFIG = {
   visitor: { icon: User, label: 'Visitor', bubbleBg: 'bg-white border border-gray-200', textColor: 'text-gray-800', align: 'justify-start', iconBg: 'bg-gray-100 text-gray-500' },
@@ -47,28 +50,11 @@ const ConversationDetail: React.FC = () => {
     }
   };
 
-  const renderRouteCard = (msg: Message) => {
-    if (!msg.routeCard) return null;
-    const rc = msg.routeCard;
-    return (
-      <div className="mt-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/30 p-4 space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Plane className="w-4 h-4 text-emerald-500" />
-          {rc.route}
-          {rc.isNonStop && <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">Non-Stop</span>}
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-          <div><span className="font-medium">From:</span> {rc.originCode}</div>
-          <div><span className="font-medium">To:</span> {rc.destinationCode}</div>
-          <div><span className="font-medium">Duration:</span> {rc.duration}</div>
-          <div><span className="font-medium">Dates:</span> {rc.dates}</div>
-        </div>
-        <div className="text-xs text-gray-600">
-          <span className="font-medium">Airlines:</span> {rc.airlines.join(', ')}
-        </div>
-        <div className="text-sm font-semibold text-emerald-700">{rc.priceRange}</div>
-      </div>
-    );
+  const handleCloseConversation = () => {
+    if (id) {
+      closeConversation(id);
+      navigate('/conversations');
+    }
   };
 
   return (
@@ -80,16 +66,22 @@ const ConversationDetail: React.FC = () => {
           <button onClick={() => navigate('/conversations')} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold">
-            {conv.visitorName.split(' ').map(w => w[0]).join('').slice(0, 2)}
-          </div>
+          <Avatar name={conv.visitorName} size="sm" />
           <div>
             <p className="text-sm font-semibold text-gray-900">{conv.visitorName}</p>
             <p className="text-xs text-gray-500">{conv.visitorEmail}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <Badge label={conv.type === 'SALES' ? 'Sales' : 'Support'} variant={conv.type === 'SALES' ? 'sales' : 'support'} />
             <Badge label={conv.status} variant="status" />
-            <Badge label={conv.intent} variant="intent" />
+            {conv.status !== 'Closed' && (
+              <button
+                onClick={handleCloseConversation}
+                className="ml-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            )}
           </div>
         </div>
 
@@ -118,8 +110,8 @@ const ConversationDetail: React.FC = () => {
                         <span className="text-xs font-medium text-[var(--color-gold-600)]">Lead Captured</span>
                       </div>
                     )}
-                    {renderRouteCard(msg)}
                   </div>
+                  {msg.routeCard && <RouteCardDisplay card={msg.routeCard} />}
                 </div>
                 {msg.role === 'agent' && (
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${cfg.iconBg}`}>
@@ -157,53 +149,75 @@ const ConversationDetail: React.FC = () => {
 
       {/* Right Sidebar */}
       <div className="w-72 shrink-0 space-y-4">
-        {/* Lead Details */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-900 font-display">Lead Details</h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm">
-              <User className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-700">{conv.visitorName}</span>
+        {/* Linked Lead Details */}
+        {(() => {
+          const linkedLead = getLeads().find(l => l.email === conv.visitorEmail);
+          if (linkedLead) {
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 font-display">Linked Lead</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={linkedLead.name} size="md" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{linkedLead.name}</p>
+                      <ScoreBadge score={linkedLead.score} />
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs border-t border-gray-200 pt-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Route:</span>
+                      <span className="font-medium text-gray-900">{linkedLead.route}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Intent:</span>
+                      <Badge label={linkedLead.intent} variant="intent" />
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Status:</span>
+                      <Badge label={linkedLead.status} variant="status" />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/leads')}
+                    className="w-full px-3 py-2 text-sm font-medium text-[var(--color-navy-900)] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    View Lead Profile
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Conversation Details */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900 font-display">Details</h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between pb-2 border-b border-gray-200">
+              <span className="text-gray-500">Messages</span>
+              <span className="font-medium text-gray-900">{conv.messages.length}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-700">{conv.visitorEmail}</span>
+            <div className="flex justify-between pb-2 border-b border-gray-200">
+              <span className="text-gray-500">Duration</span>
+              <span className="font-medium text-gray-900">{conv.duration}</span>
+            </div>
+            <div className="flex justify-between pb-2 border-b border-gray-200">
+              <span className="text-gray-500">Type</span>
+              <Badge label={conv.type === 'SALES' ? 'Sales' : 'Support'} variant={conv.type === 'SALES' ? 'sales' : 'support'} />
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Intent</span>
+              <Badge label={conv.intent} variant="intent" />
             </div>
           </div>
           {conv.leadCaptured && (
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--color-gold-500)]/10">
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--color-gold-500)]/10 mt-3">
               <CheckCircle2 className="w-4 h-4 text-[var(--color-gold-500)]" />
               <span className="text-xs font-medium text-[var(--color-gold-600)]">Lead Captured</span>
             </div>
           )}
-        </div>
-
-        {/* Conversation Stats */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-900 font-display">Stats</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900 font-display">{conv.messages.length}</p>
-              <p className="text-xs text-gray-500">Messages</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-gray-400" />
-                <p className="text-lg font-bold text-gray-900 font-display">{conv.duration}</p>
-              </div>
-              <p className="text-xs text-gray-500">Duration</p>
-            </div>
-          </div>
-          <div className="pt-2">
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-              <span>Type</span>
-              <span className="font-medium text-gray-700">{conv.type}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>Intent</span>
-              <Badge label={conv.intent} variant="intent" />
-            </div>
-          </div>
         </div>
       </div>
     </div>

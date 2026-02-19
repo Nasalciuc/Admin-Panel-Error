@@ -1,9 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Download, Trash2, Edit3, Phone } from 'lucide-react';
+import { Plus, Download, Trash2, Edit3 } from 'lucide-react';
 import { useLeads } from '../../../shared/hooks/useLeads';
 import { Badge } from '../../../shared/components/Badge';
 import { Modal } from '../../../shared/components/Modal';
 import { EmptyState } from '../../../shared/components/EmptyState';
+import { Avatar } from '../../../shared/components/Avatar';
+import { ScoreBadge } from '../../../shared/components/ScoreBadge';
+import { SearchInput } from '../../../shared/components/SearchInput';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { Toast } from '../../../shared/components/Toast';
+import { leadsToCSV, downloadCSV } from '../../../shared/utils/export';
+import { formatPhone } from '../../../shared/utils/formatters';
 import type { Lead } from '../../../shared/types';
 
 const INTENTS = ['Flight Booking', 'Price Inquiry', 'Route Information'];
@@ -31,6 +38,7 @@ const Leads: React.FC = () => {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState<LeadForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Apply filters
   useMemo(() => {
@@ -70,16 +78,10 @@ const Leads: React.FC = () => {
     }
   };
 
-  const exportCSV = () => {
-    const header = 'Name,Email,Phone,Route,Intent,Score,Status\n';
-    const rows = leads.map(l => `"${l.name}","${l.email}","${l.phone || ''}","${l.route}","${l.intent}",${l.score},"${l.status}"`).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bbc-leads-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExportCSV = () => {
+    const csv = leadsToCSV(leads);
+    downloadCSV(csv, `bbc-leads-${Date.now()}.csv`);
+    setToast('Leads exported successfully!');
   };
 
   const setField = (key: keyof LeadForm, value: string | number) => setForm(f => ({ ...f, [key]: value }));
@@ -93,7 +95,7 @@ const Leads: React.FC = () => {
           <p className="text-sm text-gray-500 mt-1">{leads.length} total leads captured</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+          <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
             <Download className="w-4 h-4" /> Export CSV
           </button>
           <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[var(--color-navy-900)] rounded-lg hover:bg-[var(--color-navy-800)] transition-colors shadow-sm">
@@ -104,16 +106,7 @@ const Leads: React.FC = () => {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search leads..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-navy-800)]/20 focus:border-[var(--color-navy-800)] bg-white"
-          />
-        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search leads..." className="flex-1 min-w-[200px] max-w-sm" />
         <select value={intentFilter} onChange={e => setIntentFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-navy-800)]/20">
           <option value="">All Intents</option>
           {INTENTS.map(i => <option key={i} value={i}>{i}</option>)}
@@ -147,24 +140,26 @@ const Leads: React.FC = () => {
                   <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${lead.avatarColor}`}>
-                          {lead.initials}
-                        </div>
+                        <Avatar name={lead.name} size="sm" />
                         <div>
                           <p className="font-medium text-gray-900">{lead.name}</p>
                           <p className="text-xs text-gray-500">{lead.email}</p>
+                          {lead.tags && lead.tags.length > 0 && (
+                            <div className="flex gap-1 mt-1">
+                              {lead.tags.map(tag => (
+                                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-gray-700">{lead.route}</td>
                     <td className="px-5 py-3.5"><Badge label={lead.intent} variant="intent" /></td>
-                    <td className="px-5 py-3.5"><Badge label={String(lead.score)} variant="score" /></td>
+                    <td className="px-5 py-3.5"><ScoreBadge score={lead.score} /></td>
                     <td className="px-5 py-3.5"><Badge label={lead.status} variant="status" /></td>
                     <td className="px-5 py-3.5 text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5" />
-                        <span className="text-xs">{lead.phone || '(Optional, not provided)'}</span>
-                      </div>
+                      <span className="text-xs">{formatPhone(lead.phone)}</span>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-end gap-1">
@@ -246,24 +241,19 @@ const Leads: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
         open={!!deleteId}
-        onClose={() => setDeleteId(null)}
         title="Delete Lead"
-        footer={
-          <>
-            <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              Cancel
-            </button>
-            <button onClick={handleDelete} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
-              Delete
-            </button>
-          </>
-        }
-      >
-        <p className="text-sm text-gray-600">Are you sure you want to delete this lead? This action cannot be undone.</p>
-      </Modal>
+        message="Are you sure you want to delete this lead? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
+
+      {/* Toast */}
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 };
