@@ -52,14 +52,14 @@ function seed(): void {
   if (localStorage.getItem(KEYS.seeded)) return;
 
   const leads: Lead[] = [
-    { id: uid(), name: 'John Thompson', initials: 'JT', email: 'john.thompson@email.com', phone: '', route: 'NYC → LHR', intent: 'Flight Booking', score: 92, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-blue-100 text-blue-700', notes: '' },
+    { id: uid(), name: 'John Thompson', initials: 'JT', email: 'john.thompson@email.com', phone: '+1 (212) 555-0147', route: 'NYC → LHR', intent: 'Flight Booking', score: 92, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-blue-100 text-blue-700', notes: '' },
     { id: uid(), name: 'Sarah Chen', initials: 'SC', email: 'sarah.chen@email.com', phone: '', route: 'LAX → NRT', intent: 'Price Inquiry', score: 78, status: 'Contacted', capturedAt: new Date().toISOString(), avatarColor: 'bg-emerald-100 text-emerald-700', notes: '' },
-    { id: uid(), name: 'Michael Davis', initials: 'MD', email: 'michael.davis@email.com', phone: '', route: 'ORD → CDG', intent: 'Route Information', score: 84, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-purple-100 text-purple-700', notes: '' },
-    { id: uid(), name: 'Emily Wilson', initials: 'EW', email: 'emily.wilson@email.com', phone: '', route: 'MIA → DXB', intent: 'Flight Booking', score: 89, status: 'Contacted', capturedAt: new Date().toISOString(), avatarColor: 'bg-amber-100 text-amber-700', notes: '' },
+    { id: uid(), name: 'Michael Davis', initials: 'MD', email: 'michael.davis@email.com', phone: '+1 (312) 555-0283', route: 'ORD → CDG', intent: 'Route Information', score: 84, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-purple-100 text-purple-700', notes: '' },
+    { id: uid(), name: 'Emily Wilson', initials: 'EW', email: 'emily.wilson@email.com', phone: '+1 (305) 555-0391', route: 'MIA → DXB', intent: 'Flight Booking', score: 89, status: 'Converted', capturedAt: new Date().toISOString(), avatarColor: 'bg-amber-100 text-amber-700', notes: '' },
     { id: uid(), name: 'David Lee', initials: 'DL', email: 'david.lee@email.com', phone: '', route: 'SFO → HKG', intent: 'Price Inquiry', score: 75, status: 'Contacted', capturedAt: new Date().toISOString(), avatarColor: 'bg-rose-100 text-rose-700', notes: '' },
-    { id: uid(), name: 'Jennifer Garcia', initials: 'JG', email: 'jennifer.garcia@email.com', phone: '', route: 'ATL → AMS', intent: 'Flight Booking', score: 86, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-cyan-100 text-cyan-700', notes: '' },
-    { id: uid(), name: 'Robert Kim', initials: 'RK', email: 'robert.kim@email.com', phone: '', route: 'DFW → FRA', intent: 'Route Information', score: 72, status: 'Contacted', capturedAt: new Date().toISOString(), avatarColor: 'bg-indigo-100 text-indigo-700', notes: '' },
-    { id: uid(), name: 'Amanda White', initials: 'AW', email: 'amanda.white@email.com', phone: '', route: 'SEA → SYD', intent: 'Flight Booking', score: 90, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-teal-100 text-teal-700', notes: '' },
+    { id: uid(), name: 'Jennifer Garcia', initials: 'JG', email: 'jennifer.garcia@email.com', phone: '+1 (404) 555-0512', route: 'ATL → AMS', intent: 'Flight Booking', score: 86, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-cyan-100 text-cyan-700', notes: '' },
+    { id: uid(), name: 'Robert Kim', initials: 'RK', email: 'robert.kim@email.com', phone: '', route: 'DFW → FRA', intent: 'Route Information', score: 72, status: 'Lost', capturedAt: new Date().toISOString(), avatarColor: 'bg-indigo-100 text-indigo-700', notes: '' },
+    { id: uid(), name: 'Amanda White', initials: 'AW', email: 'amanda.white@email.com', phone: '+1 (206) 555-0678', route: 'SEA → SYD', intent: 'Flight Booking', score: 90, status: 'New', capturedAt: new Date().toISOString(), avatarColor: 'bg-teal-100 text-teal-700', notes: '' },
   ];
 
   const conversations: Conversation[] = [
@@ -304,6 +304,8 @@ export function getDashboardStats() {
   return {
     totalConversations: convs.length,
     leadsCount: leads.length,
+    // TODO: Calculate from real response times when backend is connected
+    // For V1 localStorage, we don't track timestamps per message
     avgResponse: '1.8s',
     kbCoverage: maxEntries > 0 ? `${Math.round((totalEntries / maxEntries) * 100)}%` : '0%',
   };

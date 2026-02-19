@@ -18,12 +18,15 @@ const intentColors: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
+  // Lead statuses
   New: 'bg-blue-50 text-blue-700',
   Contacted: 'bg-amber-50 text-amber-700',
-  Qualified: 'bg-emerald-50 text-emerald-700',
-  Closed: 'bg-gray-100 text-gray-600',
+  Converted: 'bg-emerald-50 text-emerald-700',
+  Lost: 'bg-red-50 text-red-600',
+  // Conversation statuses
   Active: 'bg-emerald-50 text-emerald-700',
   Pending: 'bg-amber-50 text-amber-700',
+  Closed: 'bg-gray-100 text-gray-600',
 };
 
 export const Badge: React.FC<BadgeProps> = ({ label, variant, className = '' }) => {

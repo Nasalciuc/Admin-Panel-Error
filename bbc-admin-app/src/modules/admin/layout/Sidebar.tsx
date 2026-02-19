@@ -27,10 +27,10 @@ export const Sidebar: React.FC = () => {
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              `flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors border-l-[3px] ${
                 isActive
-                  ? 'bg-white/10 text-white border-l-2 border-[var(--color-gold-500)]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-white/10 text-white border-[var(--color-gold-500)]'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent'
               }`
             }
           >

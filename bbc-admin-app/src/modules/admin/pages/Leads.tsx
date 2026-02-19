@@ -7,16 +7,16 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import type { Lead } from '../../../shared/types';
 
 const INTENTS = ['Flight Booking', 'Price Inquiry', 'Route Information'];
-const STATUSES = ['New', 'Contacted', 'Qualified', 'Closed'];
+const STATUSES = ['New', 'Contacted', 'Converted', 'Lost'];
 
 interface LeadForm {
   name: string;
   email: string;
   phone: string;
   route: string;
-  intent: string;
+  intent: Lead['intent'];
   score: number;
-  status: string;
+  status: Lead['status'];
   notes: string;
 }
 
