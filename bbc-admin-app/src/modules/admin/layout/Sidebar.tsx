@@ -15,8 +15,8 @@ export const Sidebar: React.FC = () => {
   return (
     <aside className="fixed inset-y-0 left-0 w-60 bg-[var(--color-navy-900)] flex flex-col z-30">
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-white/10">
-        <BBCLogo className="h-8 w-auto" />
+      <div className="h-16 flex items-center px-5 border-b border-white/10 bg-white">
+        <BBCLogo className="h-10 w-auto" />
       </div>
 
       {/* Navigation */}
