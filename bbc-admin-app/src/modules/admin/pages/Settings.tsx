@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../../shared/hooks/useSettings';
 import { Toast } from '../../../shared/components/Toast';
 import type { AppSettings } from '../../../shared/types';
@@ -23,18 +23,30 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [form, setForm] = useState<AppSettings>(settings);
   const [toast, setToast] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const handleChange = (key: keyof AppSettings, value: any) => {
     setForm({ ...form, [key]: value });
+    setIsDirty(true);
   };
 
   const handleSave = () => {
     update(form);
+    setIsDirty(false);
     setToast('Settings saved successfully!');
   };
 
   const handleToggle = (key: keyof AppSettings) => {
     setForm({ ...form, [key]: !form[key] });
+    setIsDirty(true);
   };
 
   return (
@@ -289,7 +301,8 @@ const Settings: React.FC = () => {
           <div className="mt-6 pt-6 border-t border-gray-200">
             <button
               onClick={handleSave}
-              className="bg-[var(--color-navy-900)] hover:bg-[var(--color-navy-900)]/90 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors"
+              disabled={!isDirty}
+              className={`bg-[var(--color-navy-900)] hover:bg-[var(--color-navy-900)]/90 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors ${!isDirty ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Save Settings
             </button>

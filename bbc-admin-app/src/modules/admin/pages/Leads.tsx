@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Download, Trash2, Edit3 } from 'lucide-react';
 import { useLeads } from '../../../shared/hooks/useLeads';
 import { Badge } from '../../../shared/components/Badge';
@@ -41,7 +41,7 @@ const Leads: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
 
   // Apply filters
-  useMemo(() => {
+  useEffect(() => {
     if (!search && !intentFilter && !statusFilter) {
       refresh();
     } else {
@@ -63,10 +63,12 @@ const Leads: React.FC = () => {
 
   const handleSave = () => {
     if (!form.name || !form.email) return;
+    const clampedScore = Math.max(0, Math.min(100, form.score));
+    const validatedForm = { ...form, score: clampedScore };
     if (editLead) {
-      update(editLead.id, form);
+      update(editLead.id, validatedForm);
     } else {
-      add(form);
+      add(validatedForm);
     }
     setModalOpen(false);
   };
@@ -225,7 +227,10 @@ const Leads: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Score</label>
-              <input type="number" min={0} max={100} value={form.score} onChange={e => setField('score', Number(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-navy-800)]/20" />
+              <input type="number" min={0} max={100} value={form.score} onChange={e => {
+                const val = parseInt(e.target.value);
+                setField('score', isNaN(val) ? 0 : val);
+              }} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-navy-800)]/20" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>

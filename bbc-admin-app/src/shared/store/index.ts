@@ -13,7 +13,7 @@ const KEYS = {
 // ── Helpers ──────────────────────────────────────────────────────
 
 function uid(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return crypto.randomUUID();
 }
 
 function read<T>(key: string): T | null {
@@ -156,6 +156,15 @@ function seed(): void {
   // Fix categoryId references
   kb.forEach(cat => cat.entries.forEach(e => { e.categoryId = cat.id; }));
 
+  // Spread lead timestamps across last 7 days
+  leads.forEach((lead, i) => {
+    const daysAgo = i % 7;
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    date.setHours(9 + (i % 8), (i * 7) % 60, 0, 0);
+    lead.capturedAt = date.toISOString();
+  });
+
   write(KEYS.leads, leads);
   write(KEYS.conversations, conversations);
   write(KEYS.kb, kb);
@@ -271,7 +280,14 @@ export function filterLeads(opts: { search?: string; intent?: string; status?: s
   let leads = getLeads();
   if (opts.search) {
     const q = opts.search.toLowerCase();
-    leads = leads.filter(l => l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q) || l.route.toLowerCase().includes(q));
+    leads = leads.filter(l =>
+      l.name.toLowerCase().includes(q) ||
+      l.email.toLowerCase().includes(q) ||
+      l.route.toLowerCase().includes(q) ||
+      (l.phone || '').toLowerCase().includes(q) ||
+      (l.notes || '').toLowerCase().includes(q) ||
+      (l.tags || []).some(t => t.toLowerCase().includes(q))
+    );
   }
   if (opts.intent) leads = leads.filter(l => l.intent === opts.intent);
   if (opts.status) leads = leads.filter(l => l.status === opts.status);
@@ -363,7 +379,6 @@ export function getDashboardStats(): DashboardStats {
   const leads = getLeads();
   const kb = getKBCategories();
   const totalEntries = kb.reduce((sum, c) => sum + c.entries.length, 0);
-  const maxEntries = Math.max(kb.length * 5, 1);
 
   // Leads this week
   const weekAgo = Date.now() - 7 * 86400000;
@@ -402,7 +417,7 @@ export function getDashboardStats(): DashboardStats {
     leadsCount: leads.length,
     leadsThisWeek,
     avgResponse: '1.8s',
-    kbCoverage: `${Math.round((totalEntries / maxEntries) * 100)}%`,
+    kbCoverage: `${totalEntries} entries`,
     conversionRate,
     topRoute,
     leadsByDay,

@@ -7,7 +7,7 @@
  * <Toast message={toast} onDismiss={() => setToast(null)} />
  * // trigger: setToast('Settings saved!')
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 
 interface Props {
@@ -18,11 +18,14 @@ interface Props {
 }
 
 export const Toast: React.FC<Props> = ({ message, variant = 'success', duration = 3000, onDismiss }) => {
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(onDismiss, duration);
+    const timer = setTimeout(() => onDismissRef.current(), duration);
     return () => clearTimeout(timer);
-  }, [message, duration, onDismiss]);
+  }, [message, duration]);
 
   if (!message) return null;
 

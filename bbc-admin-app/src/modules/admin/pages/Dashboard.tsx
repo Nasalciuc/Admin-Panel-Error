@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Users, Zap, BookOpen, ArrowRight } from 'lucide-react';
 import { StatCard } from '../../../shared/components/StatCard';
@@ -10,9 +10,9 @@ import { getConversations, getLeads, getKBCategories } from '../../../shared/sto
 
 const Dashboard: React.FC = () => {
   const { stats } = useDashboard();
-  const conversations = getConversations().slice(0, 5);
-  const leads = getLeads().slice(0, 5);
-  const kb = getKBCategories();
+  const conversations = useMemo(() => getConversations().slice(0, 5), [stats]);
+  const leads = useMemo(() => getLeads().slice(0, 5), [stats]);
+  const kb = useMemo(() => getKBCategories(), [stats]);
   const navigate = useNavigate();
 
   return (
@@ -28,7 +28,7 @@ const Dashboard: React.FC = () => {
         <StatCard icon={<MessageSquare className="w-5 h-5" />} label="Conversations" value={stats.totalConversations} highlight />
         <StatCard icon={<Users className="w-5 h-5" />} label="Leads Captured" value={stats.leadsCount} />
         <StatCard icon={<Zap className="w-5 h-5" />} label="Avg Response" value={stats.avgResponse} />
-        <StatCard icon={<BookOpen className="w-5 h-5" />} label="KB Coverage" value={stats.kbCoverage} />
+        <StatCard icon={<BookOpen className="w-5 h-5" />} label="KB Entries" value={stats.kbCoverage} />
       </div>
 
       {/* KPI Cards - Row 2 */}

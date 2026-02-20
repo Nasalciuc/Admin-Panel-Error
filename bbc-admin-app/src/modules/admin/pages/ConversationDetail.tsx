@@ -6,7 +6,7 @@ import { Badge } from '../../../shared/components/Badge';
 import { Avatar } from '../../../shared/components/Avatar';
 import { ScoreBadge } from '../../../shared/components/ScoreBadge';
 import { RouteCardDisplay } from '../../../shared/components/RouteCardDisplay';
-import { closeConversation, getLeads } from '../../../shared/store';
+import { getLeads } from '../../../shared/store';
 
 const ROLE_CONFIG = {
   visitor: { icon: User, label: 'Visitor', bubbleBg: 'bg-white border border-gray-200', textColor: 'text-gray-800', align: 'justify-start', iconBg: 'bg-gray-100 text-gray-500' },
@@ -17,10 +17,10 @@ const ROLE_CONFIG = {
 const ConversationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { get, addMessage } = useConversations();
+  const { conversations, addMessage, close } = useConversations();
   const [replyText, setReplyText] = useState('');
 
-  const conv = id ? get(id) : undefined;
+  const conv = id ? conversations.find(c => c.id === id) : undefined;
 
   if (!conv) {
     return (
@@ -52,7 +52,7 @@ const ConversationDetail: React.FC = () => {
 
   const handleCloseConversation = () => {
     if (id) {
-      closeConversation(id);
+      close(id);
       navigate('/conversations');
     }
   };

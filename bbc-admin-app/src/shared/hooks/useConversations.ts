@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Conversation, Message } from '../types';
-import { getConversations, getConversation, addMessageToConversation, createConversation } from '../store';
+import { getConversations, getConversation, addMessageToConversation, createConversation, closeConversation as storeClose } from '../store';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>(getConversations);
@@ -23,5 +23,11 @@ export function useConversations() {
     return conv;
   }, [refresh]);
 
-  return { conversations, get, addMessage, create, refresh };
+  const close = useCallback((convId: string) => {
+    const result = storeClose(convId);
+    refresh();
+    return result;
+  }, [refresh]);
+
+  return { conversations, get, addMessage, create, close, refresh };
 }

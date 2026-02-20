@@ -4,7 +4,7 @@ import { Building2, Star, Plane, CalendarCheck, HelpCircle } from 'lucide-react'
 import { useKB } from '../../../shared/hooks/useKB';
 import { Modal } from '../../../shared/components/Modal';
 import { EmptyState } from '../../../shared/components/EmptyState';
-import type { KBCategory, KBEntry } from '../../../shared/types';
+import type { KBEntry } from '../../../shared/types';
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   Building2, Star, Plane, CalendarCheck, HelpCircle,
@@ -12,7 +12,8 @@ const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
 
 const KnowledgeBase: React.FC = () => {
   const { categories, addEntry, updateEntry, removeEntry } = useKB();
-  const [selectedCat, setSelectedCat] = useState<KBCategory | null>(null);
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const selectedCat = selectedCatId ? categories.find(c => c.id === selectedCatId) ?? null : null;
   const [modalOpen, setModalOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<KBEntry | null>(null);
   const [title, setTitle] = useState('');
@@ -41,17 +42,12 @@ const KnowledgeBase: React.FC = () => {
       addEntry(selectedCat.id, title.trim(), content.trim());
     }
     setModalOpen(false);
-    // Refresh the selected category view
-    const updated = categories.find(c => c.id === selectedCat.id);
-    if (updated) setSelectedCat({ ...updated });
   };
 
   const handleDelete = () => {
     if (deleteTarget) {
       removeEntry(deleteTarget.catId, deleteTarget.entryId);
       setDeleteTarget(null);
-      const updated = categories.find(c => c.id === deleteTarget.catId);
-      if (updated) setSelectedCat({ ...updated });
     }
   };
 
@@ -70,7 +66,7 @@ const KnowledgeBase: React.FC = () => {
             return (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCat(cat)}
+                onClick={() => setSelectedCatId(cat.id)}
                 className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 text-left hover:border-gray-300 hover:shadow transition-all group"
               >
                 <div className="flex items-start gap-3">
@@ -102,14 +98,14 @@ const KnowledgeBase: React.FC = () => {
 
   // Category Entries View
   const IconComp = ICON_MAP[selectedCat.icon] || BookOpen;
-  const currentEntries = categories.find(c => c.id === selectedCat.id)?.entries || selectedCat.entries;
+  const currentEntries = selectedCat?.entries ?? [];
 
   return (
     <div className="space-y-6 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSelectedCat(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={() => setSelectedCatId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedCat.iconBg} ${selectedCat.iconColor}`}>
