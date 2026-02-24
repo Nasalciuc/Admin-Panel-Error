@@ -9,9 +9,10 @@ export function SignIn2() {
     <div className='relative container grid h-svh flex-col items-center justify-center lg:max-w-none lg:grid-cols-2 lg:px-0'>
       <div className='lg:p-8'>
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8'>
-          <div className='mb-4 flex items-center justify-center'>
-            <Logo className='me-2' />
-            <h1 className='text-xl font-medium'>Shadcn Admin</h1>
+          <div className='flex flex-col items-center gap-2 mb-6'>
+            <Logo className='size-10' />
+            <h1 className='text-xl font-bold font-display'>BBC Admin</h1>
+            <p className='text-sm text-muted-foreground'>BuyBusinessClass</p>
           </div>
         </div>
         <div className='mx-auto flex w-full max-w-sm flex-col justify-center space-y-2'>
@@ -54,14 +55,7 @@ export function SignIn2() {
           className='dark:hidden'
           width={1024}
           height={1151}
-          alt='Shadcn-Admin'
-        />
-        <img
-          src={dashboardDark}
-          className='hidden dark:block'
-          width={1024}
-          height={1138}
-          alt='Shadcn-Admin'
+          alt='BBC Admin'
         />
       </div>
     </div>
