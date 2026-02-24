@@ -1,7 +1,8 @@
 {
-  "name": "shadcn-admin",
+  "name": "bbc-admin-panel",
+  "description": "Admin dashboard for BuyBusinessClass AI Chatbot - Lead management, conversations, KB, RBAC",
   "private": false,
-  "version": "2.2.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

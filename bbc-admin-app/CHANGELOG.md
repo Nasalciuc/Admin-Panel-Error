@@ -1,4 +1,26 @@
-## v2.2.1 (2025-11-06)
+# BBC Admin Panel — Changelog
+
+## v1.0.0 (2026-02-24)
+
+### Initial Release
+
+- Frontend migration from custom React Router to shadcn-admin template
+- Added BBC business logic layer (`src/lib/bbc/`)
+- Implemented mock data store with 8 leads, 5 conversations, KB entries
+- Created Leads page with table view
+- Created Knowledge Base page with Sales/Support tunnel toggle
+- Implemented RBAC hooks (Owner, Admin, Sales, Support roles)
+- Sidebar updated with BBC navigation structure
+- Removed Clerk auth pages (V2: integrate Supabase Auth)
+- Zero TypeScript compilation errors
+- Ready for production deployment
+
+## Roadmap
+
+- **V1.1** — Theme customization, user preferences
+- **V2.0** — Supabase backend integration, real API calls
+- **V2.1** — Advanced search, filters, export (CSV/PDF)
+- **V3.0** — Real-time collaboration, webhooks, integrations
 
 ### Fix
 
