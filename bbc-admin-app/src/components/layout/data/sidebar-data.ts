@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ListTodo, MessageSquare, Users, UserPlus, BookOpen,
   Puzzle, Settings, UserCog, Wrench, Palette, Bell, Monitor,
-  ShieldCheck, Bug, Lock, UserX, FileX, ServerOff, Construction, Command,
+  ShieldCheck, Bug, Lock, UserX, FileX, ServerOff, Construction, Plane,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -12,7 +12,7 @@ export const sidebarData: SidebarData = {
     avatar: '/avatars/shadcn.jpg',
   },
   teams: [
-    { name: 'BuyBusinessClass', logo: Command, plan: 'Admin Panel' },
+    { name: 'BuyBusinessClass', logo: Plane, plan: 'Admin Panel' },
   ],
   navGroups: [
     {

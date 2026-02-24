@@ -1,24 +1,33 @@
 import { type SVGProps } from 'react'
 import { cn } from '@/lib/utils'
 
+/**
+ * BBC (BuyBusinessClass) Logo — Plane icon with gold accent mark.
+ * Used in sidebar header and favicon.
+ */
 export function Logo({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      id='shadcn-admin-logo'
-      viewBox='0 0 24 24'
+      id='bbc-admin-logo'
+      viewBox='0 0 32 32'
       xmlns='http://www.w3.org/2000/svg'
-      height='24'
-      width='24'
+      height='32'
+      width='32'
       fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
       className={cn('size-6', className)}
       {...props}
     >
-      <title>Shadcn-Admin</title>
-      <path d='M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3' />
+      <title>BBC Admin</title>
+      {/* Navy circle background */}
+      <circle cx='16' cy='16' r='16' fill='#0B1829' />
+      {/* Gold plane silhouette */}
+      <path
+        d='M24.5 10.5L14 15l-5-2-2 1 4 3-1 5 2 1 3-4 5 2 1-2-3-4L24.5 10.5z'
+        fill='#C9A54E'
+        strokeLinejoin='round'
+      />
+      {/* Gold accent dot */}
+      <circle cx='24.5' cy='10.5' r='1.2' fill='#C9A54E' />
     </svg>
   )
 }
