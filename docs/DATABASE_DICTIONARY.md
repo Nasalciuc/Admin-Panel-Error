@@ -1,170 +1,257 @@
-# BBC AI Chatbot — Dicționar Baza de Date V8
+# 📊 BBC AI Chatbot — Dicționar Baza de Date V8
 
-**9 Tabele · 120+ Câmpuri · Schema Finală**
+**9 Tabele · 120+ Câmpuri · Schema Finală**  
 **Martie 2026 · Documentație Internă BBC Sky Data**
 
 ---
 
-## Legendă
+## 📑 Cuprins
 
-- 🔴 **Nume roșu** = Cheie Primară (PK) — identificator unic
-- 🔵 **Nume albastru** = Cheie Externă (FK) — referință către altă tabelă
-- **NU** = câmpul este OBLIGATORIU
-- *DA* = câmpul este OPȚIONAL (poate fi NULL)
-- 🔄 = câmpul se SINCRONIZEAZĂ AUTOMAT din alte tabele
-
----
-
-## Harta Tabelelor
-
-| Secțiune | Tabele | Câmpuri |
-|----------|--------|---------|
-| CORE | users, conversations, messages | 10 + 14 + 7 = 31 |
-| KNOWLEDGE BASE | kb_categories, kb_entries | 7 + 9 = 16 |
-| SALES DOMAIN | leads, route_segments | 22 + 18 = 40 |
-| AI ANALYTICS | pipeline_runs | 16 |
-| CONFIGURARE | app_settings | 17 |
-| **TOTAL** | **9 tabele** | **120 câmpuri** |
+- [Legendă & Convențiuni](#legendă--convențiuni)
+- [Viziune Generală](#viziune-generală)
+- [CORE](#-secțiunea-1-core-autentificare--chat) — users, conversations, messages
+- [KNOWLEDGE BASE](#-secțiunea-2-knowledge-base) — kb_categories, kb_entries
+- [VÂNZĂRI](#-secțiunea-3-vânzări) — leads, route_segments
+- [ANALYTICS](#-secțiunea-4-analytics) — pipeline_runs
+- [CONFIGURARE](#-secțiunea-5-configurare---app_settings) — app_settings
+- [Funcții Speciale](#funcții--logică-specială)
+- [Changelog](#-changelog)
 
 ---
 
-## Relații între Tabele
+## Legendă & Convențiuni
+
+| Simbol | Înțeles |
+|--------|---------|
+| 🔴 **Roșu** | Cheie Primară (PK) — identificator unic |
+| 🔵 **Albastru** | Cheie Externă (FK) — referință către altă tabelă |
+| 🔄 **Sync** | Câmp calculat/sincronizat AUTOMAT din alte tabele |
+| **NU** | Obligatoriu (NOT NULL) |
+| *DA* | Opțional (nullable) |
+
+---
+
+## Viziune Generală
+
+### Harta Tabelelor
+
+| Secțiune | Tabele | Total Câmpuri | Rol |
+|----------|--------|---------------|-----|
+| **CORE** | users, conversations, messages | 31 | Baza chat + autentificare |
+| **KB** | kb_categories, kb_entries | 16 | Baza cunoștințe |
+| **VÂNZĂRI** | leads, route_segments | 40 | Capturare lead-uri + itinerariu |
+| **ANALYTICS** | pipeline_runs | 16 | Logging AI + costuri |
+| **CONFIG** | app_settings | 17 | Setări globale |
+| **TOTAL** | **9 tabele** | **120 câmpuri** | — |
+
+### Flux de Date (Happy Path)
 
 ```
-conversations.assigned_agent_id  →  users.id
-messages.conversation_id         →  conversations.id (CASCADE)
-kb_entries.category_id           →  kb_categories.id (CASCADE)
-leads.conversation_id            →  conversations.id (1:1 UNIQUE)
-route_segments.lead_id           →  leads.id (CASCADE)
-pipeline_runs.message_id         →  messages.id
-pipeline_runs.conversation_id    →  conversations.id (denormalizat)
-pipeline_runs.kb_entry_id        →  kb_entries.id
+1️⃣  Vizitator → widget → CONVERSAȚIE nouă (sales/support)
+2️⃣  Trimite mesaj → MESAJ (role: user) în DB [SINCRON]
+3️⃣  AI Pipeline:
+    ├─ Caută KB relevantă
+    ├─ Detectează INTENȚIE + extrage ENTITĂȚI
+    ├─ Calculează COST
+    └─ Generează RĂSPUNS
+4️⃣  MESAJ AI creat → se loghează PIPELINE_RUN async
+5️⃣  If SALES: extract LEAD + ROUTE_SEGMENTS
+6️⃣  Agent vede LEAD → SUNĂ în maxim 2h (SLA)
+```
+
+### Diagrama Relații
+
+```
+                           ┌─────────────────┐
+                           │  👤 users       │
+                           │  (10 câmpuri)   │
+                           └────────┬────────┘
+                                    ▲
+                                    │ assigned_agent_id
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+         ┌──────────▼──────────┐ ┌──▼──────────────┴────────┐
+         │ 💬 conversations    │ │ 📂 kb_categories        │
+         │ (14 câmpuri)        │ │ (7 câmpuri)            │
+         └──────────┬──────────┘ └──┬────────────────────┘
+                    │               │ category_id
+                    │ conv_id       │
+         ┌──────────▼──────────┐ ┌──▼──────────────────────┐
+         │ ✉️  messages        │ │ 📄 kb_entries          │
+         │ (7 câmpuri)         │ │ (9 câmpuri)            │
+         └──────────┬──────────┘ └────────────────────────┘
+                    │
+    ┌───────────────┼─────────────────┐
+    │               │                 │
+┌───▼──────────┐ ┌──▼───────────────┤
+│ 🎯 leads     │ │ ⚡ pipeline_runs │
+│ (22 câmpuri) │ │ (16 câmpuri)    │
+└───┬──────────┘ └────────────────┘
+    │ lead_id
+    │
+┌───▼──────────────────┐
+│ ✈️ route_segments    │
+│ (18 câmpuri)         │
+└──────────────────────┘
+
+┌──────────────────────┐
+│ ⚙️ app_settings      │ (singleton - 1 rând)
+│ (17 câmpuri)         │
+└──────────────────────┘
 ```
 
 ---
 
----
+# 🔐 SECȚIUNEA 1: CORE (Autentificare & Chat)
+
+Baza chat-ului și sistemului de autentificare. Fiecare conversație e legată de utilizator și mesaje.
 
 ## 1. 👤 users
 
-**Utilizatorii admin panel-ului: agenți de vânzări, agenți de suport, manageri, proprietari. NU sunt vizitatorii website-ului. Aceștia sunt oamenii care se LOGHEAZĂ în panoul de administrare pentru a gestiona lead-uri, articole KB și setări.**
+**Utilizatorii admin panel-ului: agenți de vânzări, agenți de suport, manageri, proprietari.**
+
+NU sunt vizitatorii website-ului. Aceștia sunt oamenii care se **LOGHEAZĂ** în panoul de administrare pentru a gestiona lead-uri, articole KB și setări.
+
+### Schema Câmpuri
 
 | Câmp | Tip | Null? | Descriere |
 |------|-----|-------|-----------|
 | 🔴 `id` | uuid PK | NU | Identificator unic. UUID v4 generat automat de Supabase la INSERT. Nu se modifică niciodată. |
-| `email` | varchar(255) UNIQUE | NU | Email-ul de login. Constrângere UNIQUE — nu pot exista doi useri cu același email. Folosit pentru autentificarea Supabase Auth. Exemplu: `maria.agent@buybusinessclass.com` |
-| `name` | varchar(255) | NU | Numele afișat în admin panel (bara laterală, lista de agenți) și în chat când agentul preia conversația de la bot. Exemplu: `Maria Popescu`. |
-| `role` | varchar(20) | NU | Nivelul de permisiuni în admin panel. Determină ce poate face userul: ce pagini vede, ce acțiuni poate executa. |
-| `tunnel_scope` | varchar(20) | NU | Ce tunel poate vedea acest user: `sales` (doar conversații și lead-uri de vânzări), `support` (doar conversații de suport), `all` (totul). Owner și admin = întotdeauna `all`. Un agent de vânzări vede doar conversațiile sales. |
-| `avatar_url` | varchar(500) | *DA* | URL către fotografia de profil. Afișat în admin panel lângă nume și în widget-ul de chat când agentul răspunde. NULL = se afișează inițialele (MP pentru Maria Popescu). |
-| `is_active` | boolean | NU | Ștergere logică (soft delete). `false` = cont dezactivat — userul nu se mai poate logha, nu apare în dropdown-urile de asignare agent, ascuns din liste. NU se șterge din DB pentru a păstra istoricul. Default: `true`. |
-| `last_seen_at` | timestamptz | *DA* | Ultima dată când userul a fost activ în admin panel. Se actualizează la fiecare request API. Folosit pentru badge-ul online/offline și verificarea disponibilității agentului la handoff (V3). NULL = nu s-a loghat niciodată. |
-| `created_at` | timestamptz | NU | Când a fost creat contul. Se setează automat la `NOW()` la INSERT. |
-| `updated_at` | timestamptz | NU | Ultima modificare a oricărui câmp. Se actualizează AUTOMAT prin trigger PostgreSQL la fiecare UPDATE. |
+| `email` | varchar(255) UNIQUE | NU | Email-ul de login. Constrângere UNIQUE — nu pot exista doi useri cu același email. Folosit pentru autentificarea Supabase Auth. |
+| `name` | varchar(255) | NU | Numele afișat în admin panel și de agent în chat. Ex: `Maria Popescu`. |
+| `role` | varchar(20) | NU | Nivel permisiuni: `owner`, `admin`, `sales`, `support` |
+| `tunnel_scope` | varchar(20) | NU | Vizibilitate tunel: `sales`, `support`, `all` |
+| `avatar_url` | varchar(500) | *DA* | URL fotografie profil. NULL = inițiale |
+| `is_active` | boolean | NU | `false` = soft delete, utilizator dezactivat. Default: `true` |
+| `last_seen_at` | timestamptz | *DA* | Ultima activitate. NULL = nu s-a loghat niciodată |
+| `created_at` | timestamptz | NU | La creare. Auto `NOW()` |
+| `updated_at` | timestamptz | NU | Ultima modificare. Auto-actualizat prin trigger |
 
-**Valori posibile (enums):**
+### Enums & Valori
 
-- `role`: `owner` (acces complet inclusiv facturare), `admin` (totul minus facturare), `sales` (lead-uri + conversații sales), `support` (conversații support)
-- `tunnel_scope`: `sales` (vede doar tunelul sales), `support` (vede doar tunelul support), `all` (vede ambele tunele)
+**`role`:**  `owner` (acces complet) · `admin` (minus facturare) · `sales` · `support`
 
-**Reguli de business:**
+**`tunnel_scope`:**  `sales` · `support` · `all`
 
-- Email trebuie să fie unic — constrângere UNIQUE la nivel de DB
-- Owner are întotdeauna `tunnel_scope = 'all'`
-- Dezactivarea unui user (`is_active = false`) NU șterge conversațiile sau lead-urile asignate
-- `updated_at` se actualizează automat prin trigger — nu trebuie setat manual
+### Reguli de Business
+
+- Email trebuie UNIC — constrângere UNIQUE la DB
+- Owner are ÎNTOTDEAUNA `tunnel_scope = 'all'`
+- Dezactivarea user-ului NU șterge conversațiile asignate
+- `updated_at` se actualizează AUTOMAT prin trigger PostgreSQL
 
 ---
 
 ## 2. 💬 conversations
 
-**Fiecare sesiune de chat între un vizitator al website-ului și chatbot/agent. Un click pe widget-ul de chat = o conversație nouă. Aceasta este SURSA DE ADEVĂR pentru datele de contact ale vizitatorului (nume, email, telefon). Celelalte tabele (leads) referențiază conversația pentru date de contact.**
+**Fiecare sesiune de chat între vizitator și chatbot/agent. Clic widget = conversație nouă.**
 
+**SURSA DE ADEVĂR** pentru datele de contact ale vizitatorului (nume, email, telefon). Celelalte tabele referențiază conversația pentru identitate.
+
+### Schema Câmpuri
+|------|-----|-------|-----------|
 | Câmp | Tip | Null? | Descriere |
 |------|-----|-------|-----------|
-| 🔴 `id` | uuid PK | NU | Identificator unic al conversației. Creat în pipeline-ul AI la Step 1 când sosește primul mesaj. |
-| `tunnel` | varchar(10) | NU | Tipul conversației: `sales` sau `support`. Determinat de pagina/widget-ul de pe care vizittatorul a deschis chat-ul. Nu se poate schimba în timpul conversației. Determină: care KB se caută, ce template-uri se folosesc, cum se creează lead. |
-| `mode` | varchar(20) | NU | Cine răspunde ACUM clientului: `ai` = chatbot-ul răspunde (default, 90% din timp), `human` = un agent uman a preluat conversația, `waiting_for_agent` = clientul a cerut agent dar nimeni nu a preluat încă. În V1 este întotdeauna `ai`. |
-| `status` | varchar(10) | NU | Starea conversației: `active` = chat în desfășurare, `pending` = se așteaptă răspuns, `closed` = conversația s-a încheiat. Se închide automat după 30 minute de inactivitate. |
-| `visitor_name` | varchar(255) | *DA* | Numele vizitatorului extras de AI din mesajele de chat. Extracție progresivă: poate apărea la mesajul 1 sau la mesajul 5. **SURSA DE ADEVĂR** pentru identitatea vizitatorului — leads NU stochează numele separat. |
-| `visitor_email` | varchar(255) | *DA* | Email-ul vizitatorului extras din chat. Folosit pentru follow-up email. Nu este obligatoriu pentru captura de lead — telefonul este câmpul primar. |
-| `visitor_phone` | varchar(50) | *DA* | **CÂMPUL CEL MAI IMPORTANT** pentru vânzări — agentul sună acest număr în maxim 2 ore. Extras de AI din conversație. Format: orice text (`+1-555-123-4567`). Normalizarea se face la export CRM. |
-| `metadata` | jsonb | NU | Date flexibile despre vizitator și sesiune. Conține: `utm_source`, `utm_medium`, `utm_campaign` (atribuirea campaniilor), `page_url` (pagina de unde a deschis chat-ul), `referrer`, `user_agent`, `ip_country`. Default: `{}`. |
-| 🔵 `assigned_agent_id` | uuid FK → users.id | *DA* | Care agent gestionează această conversație. NULL = doar AI, niciun agent asignat. Se setează când: se capturează un lead (auto-asignare), sau asignare manuală din admin panel. |
-| `message_count` | int | NU | Numărul total de mesaje. Se **INCREMENTEAZĂ AUTOMAT** prin trigger PostgreSQL la fiecare INSERT în messages. Folosit pentru pragul de upgrade la Sonnet (5+ mesaje). |
-| `ai_cost_total` | decimal(10,6) | NU | Suma tuturor costurilor AI în USD. Se **ACUMULEAZĂ AUTOMAT** prin trigger. Exemplu: `0.003 + 0.003 + 0.015 = 0.021`. |
-| `created_at` | timestamptz | NU | Când a început conversația (momentul primului mesaj). |
-| `updated_at` | timestamptz | NU | Ultima activitate. Se actualizează la: mesaj nou, schimbare status, asignare agent. |
-| `closed_at` | timestamptz | *DA* | Când s-a închis conversația. NULL = încă deschisă. Se setează de: vizitator (la revedere), agent (închide din admin), timeout automat (30 min). Durata = `closed_at - created_at`. |
+| 🔴 `id` | uuid PK | NU | Identificator unic. Creat în Step 1 pipeline la sosirea primului mesaj. |
+| `tunnel` | varchar(10) | NU | Tip: `sales` sau `support`. Determină din pagina/widget care e deschis. Nu se poate schimba. |
+| `mode` | varchar(20) | NU | Cine răspunde: `ai` (default), `human` (agent), `waiting_for_agent` |
+| `status` | varchar(10) | NU | Stare: `active`, `pending`, `closed` (auto după 30 min inactivitate) |
+| `visitor_name` | varchar(255) | *DA* | Numele extras de AI din mesaje. SURSA DE ADEVĂR pt. identitate. |
+| `visitor_email` | varchar(255) | *DA* | Email extras din chat. Pentru follow-up. |
+| `visitor_phone` | varchar(50) | *DA* | **CEL MAI IMPORTANT** pentru sales — agentul sună în maxim 2h. |
+| `metadata` | jsonb | NU | Flexibil: `{utm_source, utm_medium, page_url, ip_country}`. Default: `{}` |
+| 🔵 `assigned_agent_id` | uuid FK → users.id | *DA* | Agent ce gestionează. NULL = doar AI. |
+| `message_count` | int | NU | Total mesaje. Se INCREMENTEAZĂ AUTOMAT prin trigger. Pragul Sonnet: 5+ |
+| `ai_cost_total` | decimal(10,6) | NU | Suma costuri AI USD. Se ACUMULEAZĂ AUTOMAT. |
+| `created_at` | timestamptz | NU | Start conversație (primul mesaj). |
+| `updated_at` | timestamptz | NU | Ultima activitate. |
+| `closed_at` | timestamptz | *DA* | Când s-a închis. NULL = încă deschisă. Durata = `closed_at - created_at` |
 
-**Valori posibile (enums):**
+### Enums & Valori
 
-- `tunnel`: `sales` (vânzări — captare lead-uri), `support` (suport — schimbări booking, bagaje)
-- `mode`: `ai` (chatbot-ul răspunde — default), `human` (agent uman a preluat), `waiting_for_agent` (nimeni nu răspunde)
-- `status`: `active` (în desfășurare), `pending` (așteaptă răspuns), `closed` (încheiat)
+**`tunnel`:**  `sales` · `support`  
+**`mode`:**  `ai` · `human` · `waiting_for_agent`  
+**`status`:**  `active` · `pending` · `closed`
 
-**Reguli de business:**
+### Reguli de Business
 
-- Tunelul NU se schimbă în timpul conversației — odată sales, întotdeauna sales
-- `visitor_phone` este câmpul cel mai important pentru sales — fără telefon, lead-ul are scor scăzut
-- `message_count` și `ai_cost_total` se actualizează DOAR prin trigger, NICIODATĂ manual
-- Conversația se închide automat după 30 min de inactivitate
-- Datele de contact (name, email, phone) trăiesc DOAR aici — leads referențiază conversația
+- Tunelul NU se schimbă în timpul conversației
+- `visitor_phone` = cel mai important pentru sales
+- `message_count` și `ai_cost_total` se actualizează DOAR prin trigger
+- Conversație se închide automat după 30 min inactivitate
+- Datele de contact (name, email, phone) trăiesc DOAR aici
 
 ---
 
 ## 3. ✉️ messages
 
-**Fiecare mesaj individual din fiecare conversație. Atât mesajele vizitatorilor cât și răspunsurile AI/agent. Se salvează SINCRON în pipeline Step 1 — nu pierdem NICIODATĂ un mesaj, chiar dacă pipeline-ul AI se blochează ulterior.**
+**Fiecare mesaj individual din conversație. Atât mesajele vizitatorului cât și răspunsurile AI/agent.**
+
+Se salvează **SINCRON** în Step 1 pipeline — nu pierdem NICIODATĂ un mesaj, chiar dacă pipeline-ul AI se blochează ulterior.
+
+### Schema Câmpuri
 
 | Câmp | Tip | Null? | Descriere |
 |------|-----|-------|-----------|
-| 🔴 `id` | uuid PK | NU | Identificator unic al mesajului. |
-| 🔵 `conversation_id` | uuid FK → conversations.id | NU | CASCADE delete — dacă se șterge conversația, se șterg și toate mesajele ei. |
-| `role` | varchar(10) | NU | Cine a trimis mesajul: `user` (vizittatorul), `ai` (chatbot-ul), `agent` (agent uman din admin panel), `system` (mesaj automat: "Agentul s-a alăturat conversației"). |
-| `content` | text | NU | Textul efectiv al mesajului. Fără limită de mărime. Pentru mesajele AI: răspunsul generat. Pentru mesajele user: exact ce a scris vizittatorul. |
-| `model_used` | varchar(20) | *DA* | Care model AI a generat acest mesaj: `template` ($0), `haiku` (~$0.003), `sonnet` (~$0.015), `template_fallback` ($0 — AI a eșuat). NULL pentru mesajele user/agent. **BACKUP INTENȚIONAT** — pipeline_runs are detalii complete dar este async și poate eșua. |
-| `cost` | decimal(10,6) | NU | Costul în USD. 0 pentru mesajele user și template-uri. **BACKUP INTENȚIONAT** — dacă INSERT-ul async în pipeline_runs eșuează, nu pierdem datele de cost. |
-| `created_at` | timestamptz | NU | Când a fost trimis/primit mesajul. Folosit pentru ordinea mesajelor și analytics-ul timpului de răspuns. |
+| 🔴 `id` | uuid PK | NU | Identificator unic. |
+| 🔵 `conversation_id` | uuid FK → conversations.id | NU | CASCADE delete — ștergerea conversației șterge și mesajele. |
+| `role` | varchar(10) | NU | Cine trimise: `user`, `ai`, `agent`, `system` |
+| `content` | text | NU | Textul exact. Pentru AI: răspur generat. Pentru user: exact ce a scris. |
+| `model_used` | varchar(20) | *DA* | Model AI: `template` ($0), `haiku` (~$0.003), `sonnet` (~$0.015), `template_fallback` ($0). NULL pt. user/agent. |
+| `cost` | decimal(10,6) | NU | Cost USD. 0 pt. user & template-uri. |
+| `created_at` | timestamptz | NU | Când trimis/primit. Ordine mesaje = `ORDER BY created_at ASC` |
 
-**Valori posibile (enums):**
+### Enums & Valori
 
-- `role`: `user` (vizitator), `ai` (chatbot), `agent` (agent uman), `system` (mesaj automat)
-- `model_used`: `template` ($0), `haiku` (~$0.003), `sonnet` (~$0.015), `template_fallback` ($0), `NULL` (mesaj user/agent)
+**`role`:**  `user` · `ai` · `agent` · `system`  
+**`model_used`:**  `template` · `haiku` · `sonnet` · `template_fallback` · `NULL`
 
-**Reguli de business:**
+### Reguli de Business
 
-- INSERT-ul mesajului este **SINCRON** — Step 1 în pipeline, NICIODATĂ async
-- `model_used` și `cost` sunt backup-uri intenționate ale datelor din pipeline_runs
-- Ordinea mesajelor = `ORDER BY created_at ASC`
-- CASCADE delete: ștergerea conversației șterge automat toate mesajele
+- INSERT-ul mesajului este **SINCRON** — Step 1 pipeline, NICIODATĂ async
+- `model_used` și `cost` sunt backup-uri intenționate ale pipeline_runs
+- CASCADE delete: ștergerea conversației șterge automat mesajele
 
 ---
 
-## 4. 📂 kb_categories (alias: kbc)
+# 📚 SECȚIUNEA 2: KNOWLEDGE BASE
 
-**Dosare care organizează articolele bazei de cunoștințe pe categorii și tunel. Categorii sales: Rute, Companii Aeriene, Prețuri, Promoții. Categorii support: Modificări Booking, Bagaje, Rambursări. Afișate în admin panel în secțiunea de gestionare KB.**
+Baza de cunoștințe cu categorii și articole pe care AI-ul le folosește pentru context.
+
+## 4. 📂 kb_categories
+
+**Dosare ce organizează articolele KB pe categorii și tunel.**
+
+Categorii sales: Rute, Companii Aeriene, Prețuri, Promoții.  
+Categorii support: Modificări Booking, Bagaje, Rambursări.
+
+### Schema Câmpuri
 
 | Câmp | Tip | Null? | Descriere |
 |------|-----|-------|-----------|
-| 🔴 `id` | uuid PK | NU | Identificator unic al categoriei. |
-| `name` | varchar(255) | NU | Numele categoriei. Exemple: `Rute și Destinații`, `Modificări Booking`, `Info Bagaje`. |
-| `tunnel` | varchar(10) | NU | `sales` sau `support`. KB-ul sales = info rute, prețuri, comparații companii. KB-ul support = politici modificare, reguli bagaje, proceduri rambursare. |
-| `icon` | varchar(50) | NU | Numele iconiței Lucide React: `Plane`, `DollarSign`, `RefreshCw`, `Luggage`. Default: `FileText`. Lista: lucide.dev |
-| `sort_order` | int | NU | Ordinea de afișare în admin panel. Număr mai mic = afișat primul. Permite reordonare drag-and-drop. |
-| `created_at` | timestamptz | NU | Când a fost creată categoria. |
-| `updated_at` | timestamptz | NU | Ultima modificare (schimbare nume, reordonare). |
+| 🔴 `id` | uuid PK | NU | Identificator unic. |
+| `name` | varchar(255) | NU | Ex: `Rute și Destinații`, `Modificări Booking` |
+| `tunnel` | varchar(10) | NU | `sales` sau `support` |
+| `icon` | varchar(50) | NU | Icon Lucide: `Plane`, `DollarSign`, `RefreshCw`, `Luggage`. Default: `FileText` |
+| `sort_order` | int | NU | Ordinea afișare. Mic = první. Permite drag-and-drop. |
+| `created_at` | timestamptz | NU | Creare. |
+| `updated_at` | timestamptz | NU | Ultima modificare. |
 
-**Reguli de business:**
+### Reguli de Business
 
-- CASCADE delete: ștergerea categoriei șterge toate articolele din ea
-- `sort_order` se actualizează în batch la reordonare drag-and-drop
+- CASCADE delete: ștergerea categoriei șterge articolele
+- `sort_order` se actualizează în batch la reordonare
 
 ---
 
-## 5. 📄 kb_entries (alias: kbe)
+## 5. 📄 kb_entries
 
-**Articole individuale din baza de cunoștințe. Fiecare este un text scurt (recomandat max 500 caractere) pe care AI-ul îl folosește ca context când generează răspunsuri. Pipeline-ul AI caută în aceste articole prin keyword (V1 ILIKE / tsvector) sau vector (V2 Qdrant) pentru a găsi informații relevante.**
+**Articole individuale din baza de cunoștințe. Text scurt (max 500 char recomandat) folosit ca context AI.**
+
+Pipeline-ul AI caută prin keyword (V1 ILIKE) sau vector (V2 Qdrant).
+
+### Schema Câmpuri
 
 | Câmp | Tip | Null? | Descriere |
 |------|-----|-------|-----------|
