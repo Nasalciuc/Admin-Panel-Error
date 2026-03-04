@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bbc_postgres
+    environment:
+      POSTGRES_DB: bbc_chatbot
+      POSTGRES_USER: bbc_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password_123}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bbc_admin -d bbc_chatbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
