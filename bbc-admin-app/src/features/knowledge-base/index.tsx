@@ -1,58 +1,392 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Plane, DollarSign, ClipboardList, RefreshCw, Luggage,
+  Plus, Edit2, Trash2, Eye, EyeOff, X, Save, AlertCircle,
+} from 'lucide-react'
+import type { KBCategory, KBEntry, KBEntryCreate } from '@/lib/types'
+import { MOCK_KB_CATEGORIES, MOCK_KB_ENTRIES } from '@/lib/mock-data'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { Search } from '@/components/search'
-import { getKBCategories } from '@/lib/bbc/store'
+import { ProfileDropdown } from '@/components/profile-dropdown'
+import { ThemeSwitch } from '@/components/theme-switch'
 
-export function KnowledgeBase() {
-  const [activeTunnel, setActiveTunnel] = useState<'sales' | 'support'>('sales')
-  const categories = getKBCategories(activeTunnel)
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+// Map icon name strings to Lucide components
+const ICON_MAP: Record<string, React.ElementType> = {
+  Plane, DollarSign, ClipboardList, RefreshCw, Luggage,
+}
+function CategoryIcon({ name }: { name: string }) {
+  const Icon = ICON_MAP[name] ?? Plane
+  return <Icon className="w-4 h-4" />
+}
+
+const TUNNEL_STYLES: Record<string, string> = {
+  sales:   'bg-blue-50 text-blue-700 border border-blue-200',
+  support: 'bg-purple-50 text-purple-700 border border-purple-200',
+}
+
+function timeAgo(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  if (days === 0) return 'today'
+  if (days === 1) return 'yesterday'
+  return `${days}d ago`
+}
+
+// Articles not updated in >90 days show a stale warning
+function isStale(iso: string): boolean {
+  return (Date.now() - new Date(iso).getTime()) > 90 * 86400000
+}
+
+// ── Entry Modal (create / edit) ───────────────────────────────
+interface ModalProps {
+  entry: Partial<KBEntry> | null
+  categories: KBCategory[]
+  defaultCategoryId?: string
+  defaultTunnel?: 'sales' | 'support'
+  onSave: (data: KBEntryCreate | Partial<KBEntry>, id?: string) => void
+  onClose: () => void
+}
+
+function EntryModal({ entry, categories, defaultCategoryId, defaultTunnel, onSave, onClose }: ModalProps) {
+  const isEdit = !!entry?.id
+  const [title,      setTitle]      = useState(entry?.title      ?? '')
+  const [content,    setContent]    = useState(entry?.content    ?? '')
+  const [categoryId, setCategoryId] = useState(entry?.category_id ?? defaultCategoryId ?? '')
+  const [tunnel,     setTunnel]     = useState<'sales' | 'support'>(entry?.tunnel ?? defaultTunnel ?? 'sales')
+  const [saving,     setSaving]     = useState(false)
+  const [error,      setError]      = useState('')
+
+  const charCount = content.length
+  const charWarn  = charCount > 450
+
+  const handleSave = async () => {
+    if (!title.trim() || !content.trim() || !categoryId) {
+      setError('Title, content, and category are required.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const payload = isEdit
+        ? { title: title.trim(), content: content.trim(), category_id: categoryId }
+        : { title: title.trim(), content: content.trim(), category_id: categoryId, tunnel, is_active: true }
+      onSave(payload, entry?.id)
+    } catch {
+      setError('Save failed. Please try again.')
+    } finally { setSaving(false) }
+  }
+
   return (
-    <>
-      <Header fixed>
-        <Search />
-        <div className='ml-auto flex items-center space-x-4'>
-          <div className='flex rounded-lg border bg-muted p-1'>
-            <button onClick={() => setActiveTunnel('sales')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTunnel === 'sales' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}>
-              Sales KB
-            </button>
-            <button onClick={() => setActiveTunnel('support')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTunnel === 'support' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}>
-              Support KB
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 bg-[#0B1829]">
+          <h3 className="text-base font-semibold text-white">{isEdit ? 'Edit KB Article' : 'New KB Article'}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </Header>
-      <Main>
-        <div className='mb-2'>
-          <h2 className='text-2xl font-bold tracking-tight'>Knowledge Base</h2>
-          <p className='text-muted-foreground'>
-            {activeTunnel === 'sales' ? 'Knowledge base for the Sales chatbot' : 'Knowledge base for the Support chatbot'}
-          </p>
-        </div>
-        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-          {categories.map((cat) => (
-            <div key={cat.id} className='rounded-lg border bg-card p-6 shadow-sm'>
-              <div className='mb-4 flex items-center gap-3'>
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${cat.iconBg}`}>
-                  <span className={`text-lg ${cat.iconColor}`}>📚</span>
-                </div>
-                <div>
-                  <h3 className='font-semibold'>{cat.name}</h3>
-                  <p className='text-sm text-muted-foreground'>{cat.entries.length} entries</p>
-                </div>
-              </div>
-              <div className='space-y-2'>
-                {cat.entries.map((entry) => (
-                  <div key={entry.id} className='rounded-md border p-3'>
-                    <h4 className='text-sm font-medium'>{entry.title}</h4>
-                    <p className='mt-1 text-xs text-muted-foreground line-clamp-2'>{entry.content}</p>
-                  </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Tunnel toggle — create only */}
+          {!isEdit && (
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tunnel</label>
+              <div className="flex gap-2 mt-1.5">
+                {(['sales', 'support'] as const).map(t => (
+                  <button key={t} onClick={() => setTunnel(t)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition capitalize ${
+                      tunnel === t
+                        ? t === 'sales' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-purple-600 border-purple-600 text-white'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>{t}
+                  </button>
                 ))}
               </div>
             </div>
-          ))}
+          )}
+
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</label>
+            <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
+              className="w-full mt-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40">
+              <option value="">Select category...</option>
+              {categories
+                .filter(c => !isEdit ? c.tunnel === tunnel : true)
+                .map(c => <option key={c.id} value={c.id}>{c.name} ({c.tunnel})</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Title</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. NYC to London Business Class"
+              className="w-full mt-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40" />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Content</label>
+              <span className={`text-xs ${charWarn ? 'text-orange-500 font-medium' : 'text-gray-400'}`}>
+                {charCount}/500 {charWarn && '— keep under 500 for best AI performance'}
+              </span>
+            </div>
+            <textarea value={content} onChange={e => setContent(e.target.value)} rows={5}
+              placeholder="Article content used as AI context. Recommended: 200–500 characters."
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40 resize-none" />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#0B1829] rounded-lg hover:bg-[#0B1829]/90 transition disabled:opacity-50">
+            <Save className="w-4 h-4" />{saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Article'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────
+export function KnowledgeBase() {
+  const [categories,  setCategories]  = useState<KBCategory[]>([])
+  const [entries,     setEntries]     = useState<KBEntry[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [usingMock,   setUsingMock]   = useState(false)
+  const [selectedCat, setSelectedCat] = useState<KBCategory | null>(null)
+  const [tunnelFilter, setTunnelFilter]  = useState<'all' | 'sales' | 'support'>('all')
+  const [editEntry,   setEditEntry]   = useState<Partial<KBEntry> | null>(null)
+  const [modalOpen,   setModalOpen]   = useState(false)
+  const [deletingId,  setDeletingId]  = useState<string | null>(null)
+
+  const openCreate = () => { setEditEntry(null); setModalOpen(true) }
+  const openEdit   = (e: KBEntry) => { setEditEntry(e); setModalOpen(true) }
+  const closeModal = () => { setModalOpen(false); setEditEntry(null) }
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [catsRes, entriesRes] = await Promise.all([
+        fetch(`${API}/api/kb/categories`,        { signal: AbortSignal.timeout(5000) }),
+        fetch(`${API}/api/kb/entries?limit=200`,  { signal: AbortSignal.timeout(5000) }),
+      ])
+      if (!catsRes.ok || !entriesRes.ok) throw new Error()
+      setCategories((await catsRes.json()).data)
+      setEntries((await entriesRes.json()).data)
+      setUsingMock(false)
+    } catch {
+      setCategories(MOCK_KB_CATEGORIES)
+      setEntries(MOCK_KB_ENTRIES)
+      setUsingMock(true)
+    } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const handleSave = async (data: KBEntryCreate | Partial<KBEntry>, id?: string) => {
+    try {
+      if (id) {
+        // Edit existing
+        if (!usingMock) {
+          await fetch(`${API}/api/kb/entries/${id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+          })
+        }
+        setEntries(prev => prev.map(e => e.id === id ? { ...e, ...(data as Partial<KBEntry>) } : e))
+      } else {
+        // Create new
+        if (!usingMock) {
+          const res = await fetch(`${API}/api/kb/entries`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+          })
+          const created = await res.json()
+          setEntries(prev => [created, ...prev])
+        } else {
+          const payload = data as KBEntryCreate
+          const mock: KBEntry = {
+            id: `mock-${Date.now()}`, ...payload,
+            is_active: payload.is_active ?? true,
+            view_count: 0, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          }
+          setEntries(prev => [mock, ...prev])
+        }
+      }
+    } finally { closeModal() }
+  }
+
+  const toggleActive = async (entry: KBEntry) => {
+    const newVal = !entry.is_active
+    if (!usingMock) {
+      await fetch(`${API}/api/kb/entries/${entry.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: newVal }),
+      })
+    }
+    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, is_active: newVal } : e))
+  }
+
+  const handleDelete = async (entryId: string) => {
+    if (!confirm('Delete this article? This cannot be undone.')) return
+    setDeletingId(entryId)
+    try {
+      if (!usingMock) await fetch(`${API}/api/kb/entries/${entryId}`, { method: 'DELETE' })
+      setEntries(prev => prev.filter(e => e.id !== entryId))
+    } finally { setDeletingId(null) }
+  }
+
+  const visibleEntries = entries.filter(e => {
+    if (selectedCat && e.category_id !== selectedCat.id) return false
+    if (tunnelFilter !== 'all' && e.tunnel !== tunnelFilter) return false
+    return true
+  })
+
+  const filteredCats = categories.filter(c => tunnelFilter === 'all' || c.tunnel === tunnelFilter)
+
+  return (
+    <>
+      <Header>
+        <div className='ms-auto flex items-center space-x-4'>
+          <ThemeSwitch />
+          <ProfileDropdown />
+        </div>
+      </Header>
+      <Main fixed>
+        <div className="flex h-full overflow-hidden rounded-lg border border-gray-200">
+          {/* Sidebar */}
+          <div className="w-64 border-r border-gray-200 bg-white flex flex-col shrink-0">
+            <div className="px-4 py-4 border-b border-gray-100">
+              <h1 className="text-lg font-bold text-[#0B1829]">Knowledge Base</h1>
+              <p className="text-xs text-gray-400 mt-0.5">{entries.length} articles{usingMock && ' · mock'}</p>
+              <div className="flex mt-3 bg-gray-100 rounded-lg p-0.5">
+                {(['all', 'sales', 'support'] as const).map(t => (
+                  <button key={t} onClick={() => { setTunnelFilter(t); setSelectedCat(null) }}
+                    className={`flex-1 py-1 text-xs font-medium rounded-md capitalize transition ${tunnelFilter === t ? 'bg-white text-[#0B1829] shadow-sm' : 'text-gray-500'}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-2">
+              {/* All articles */}
+              <button onClick={() => setSelectedCat(null)}
+                className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 transition ${!selectedCat ? 'bg-[#0B1829]/5 font-medium text-[#0B1829] border-l-2 border-[#C9A54E]' : 'text-gray-600'}`}>
+                <span className="w-4 h-4 flex items-center justify-center text-xs">📋</span>
+                All Articles
+                <span className="ml-auto text-xs text-gray-400">{visibleEntries.length}</span>
+              </button>
+
+              {loading ? (
+                <div className="px-4 py-3 text-xs text-gray-400">Loading...</div>
+              ) : filteredCats.map(cat => (
+                <button key={cat.id} onClick={() => setSelectedCat(cat)}
+                  className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-gray-50 transition ${selectedCat?.id === cat.id ? 'bg-[#0B1829]/5 font-medium text-[#0B1829] border-l-2 border-[#C9A54E]' : 'text-gray-600'}`}>
+                  <span className={`w-5 h-5 rounded flex items-center justify-center ${cat.tunnel === 'sales' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                    <CategoryIcon name={cat.icon} />
+                  </span>
+                  <span className="flex-1 text-left truncate">{cat.name}</span>
+                  <span className="text-xs text-gray-400 shrink-0">{cat.entry_count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Main area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-white">
+              <div>
+                <span className="text-sm font-medium text-[#0B1829]">{selectedCat ? selectedCat.name : 'All Articles'}</span>
+                <span className="ml-2 text-xs text-gray-400">{visibleEntries.length} articles</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+                <button onClick={openCreate}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#0B1829] rounded-lg hover:bg-[#0B1829]/90 transition">
+                  <Plus className="w-4 h-4" />New Article
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {loading ? (
+                <div className="text-center text-gray-400 text-sm py-12">Loading articles...</div>
+              ) : visibleEntries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-300">
+                  <ClipboardList className="w-10 h-10 mb-2 opacity-30" />
+                  <p className="text-sm">No articles in this category</p>
+                  <button onClick={openCreate} className="mt-3 text-xs text-[#C9A54E] hover:underline flex items-center gap-1">
+                    <Plus className="w-3 h-3" />Add first article
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {visibleEntries.map(entry => (
+                    <div key={entry.id}
+                      className={`bg-white rounded-xl border p-4 shadow-sm transition ${entry.is_active ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-semibold text-[#0B1829]">{entry.title}</h3>
+                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${TUNNEL_STYLES[entry.tunnel]}`}>{entry.tunnel}</span>
+                            {!entry.is_active && (
+                              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500">inactive</span>
+                            )}
+                            {isStale(entry.updated_at) && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-600 border border-amber-200">
+                                <AlertCircle className="w-2.5 h-2.5" />stale
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed line-clamp-2">{entry.content}</p>
+                          <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400">
+                            <span>{entry.content.length} chars</span>
+                            <span>{entry.view_count} uses</span>
+                            <span>updated {timeAgo(entry.updated_at)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => toggleActive(entry)} title={entry.is_active ? 'Deactivate' : 'Activate'}
+                            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
+                            {entry.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </button>
+                          <button onClick={() => openEdit(entry)}
+                            className="p-2 rounded-lg text-gray-400 hover:text-[#0B1829] hover:bg-gray-100 transition">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDelete(entry.id)} disabled={deletingId === entry.id}
+                            className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-40">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Create / Edit modal */}
+          {modalOpen && (
+            <EntryModal
+              entry={editEntry}
+              categories={categories}
+              defaultCategoryId={selectedCat?.id}
+              defaultTunnel={selectedCat?.tunnel ?? (tunnelFilter !== 'all' ? tunnelFilter : 'sales')}
+              onSave={handleSave}
+              onClose={closeModal}
+            />
+          )}
         </div>
       </Main>
     </>

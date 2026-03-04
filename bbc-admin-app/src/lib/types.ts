@@ -1,0 +1,122 @@
+// ── Conversations ─────────────────────────────────────────────
+export interface Message {
+  id: string
+  conversation_id: string
+  role: 'user' | 'ai' | 'agent' | 'system'
+  content: string
+  model_used: string | null
+  cost: number
+  created_at: string
+}
+
+export interface Conversation {
+  id: string
+  tunnel: 'sales' | 'support'
+  mode: 'ai' | 'human' | 'waiting_for_agent'
+  status: 'active' | 'pending' | 'closed'
+  visitor_name: string | null
+  visitor_email: string | null
+  visitor_phone: string | null
+  assigned_agent_id: string | null
+  message_count: number
+  ai_cost_total: number
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+  messages?: Message[]
+  metadata?: Record<string, string>
+}
+
+export interface ConversationsResponse {
+  data: Conversation[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// ── Leads ─────────────────────────────────────────────────────
+export interface Lead {
+  id: string
+  conversation_id: string
+  trip_type: 'one_way' | 'round_trip' | 'multi_city' | 'open_jaw' | 'tour'
+  cabin_class: 'business' | 'first' | 'economy' | 'mixed'
+  passengers: number | null
+  flexible_dates: boolean
+  origin_code: string | null
+  destination_code: string | null
+  departure_date: string | null
+  return_date: string | null
+  route_display: string | null
+  score: number
+  tier: 'gold' | 'silver' | 'bronze'
+  status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost'
+  intent_signals: string[]
+  notes: string
+  created_at: string
+  updated_at: string
+  contacted_at: string | null
+  converted_at: string | null
+  visitor_name: string | null
+  visitor_email: string | null
+  visitor_phone: string | null
+}
+
+export interface LeadsResponse {
+  data: Lead[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// ── Knowledge Base ────────────────────────────────────────────
+export interface KBCategory {
+  id: string
+  name: string
+  tunnel: 'sales' | 'support'
+  icon: string
+  sort_order: number
+  entry_count: number
+}
+
+export interface KBEntry {
+  id: string
+  category_id: string
+  title: string
+  content: string
+  tunnel: 'sales' | 'support'
+  is_active: boolean
+  view_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface KBEntryCreate {
+  category_id: string
+  title: string
+  content: string
+  tunnel: 'sales' | 'support'
+  is_active?: boolean
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+export interface DashboardStats {
+  conversations_today:  number
+  conversations_week:   number
+  conversations_month:  number
+  conversations_active: number
+  leads_total:     number
+  leads_new:       number
+  leads_contacted: number
+  leads_qualified: number
+  leads_converted: number
+  leads_lost:      number
+  leads_gold:   number
+  leads_silver: number
+  leads_bronze: number
+  cost_today: number
+  cost_week:  number
+  cost_month: number
+  top_routes:          Array<{ route: string; count: number }>
+  conversations_trend: Array<{ date: string; count: number }>
+  leads_trend:         Array<{ date: string; count: number }>
+}

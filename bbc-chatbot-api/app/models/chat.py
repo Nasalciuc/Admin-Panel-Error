@@ -1,7 +1,6 @@
-"""Request/response schemas for the chat API endpoint."""
-
+"""Pydantic models for chat endpoint."""
+from typing import Optional
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
 
 
 class VisitorInfo(BaseModel):
@@ -11,26 +10,17 @@ class VisitorInfo(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    conversation_id: Optional[str] = None  # None = create new conversation
-    message: str = Field(..., max_length=2000)
-    tunnel: Literal["sales", "support"]
-    visitor: VisitorInfo = VisitorInfo()
-    metadata: Optional[dict] = None  # quick_reply_intent, page_url, etc.
-
-
-class RouteCard(BaseModel):
-    origin: str          # "JFK"
-    destination: str     # "LHR"
-    airlines: str        # "BA, VS, DL"
-    duration: str        # "7h 20m"
-    price_range: str     # "$2,800 - $4,500"
+    message: str = Field(..., min_length=1, max_length=2000)
+    conversation_id: Optional[str] = None
+    tunnel: str = Field(default="sales", pattern="^(sales|support)$")
+    visitor: VisitorInfo = Field(default_factory=VisitorInfo)
+    metadata: Optional[dict] = None
 
 
 class ChatResponse(BaseModel):
     conversation_id: str
     message: str
-    type: Literal["ai", "template", "agent_assigned", "template_fallback"]
-    model_used: Optional[str] = None      # "haiku", "sonnet", "template"
+    type: str  # "template" | "ai" | "template_fallback"
+    model_used: str
     cost: float = 0.0
-    route_card: Optional[RouteCard] = None
-    agent_name: Optional[str] = None
+    route_card: Optional[dict] = None

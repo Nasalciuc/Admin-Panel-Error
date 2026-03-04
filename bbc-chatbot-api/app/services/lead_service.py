@@ -1,66 +1,76 @@
-"""Lead management — scoring, update, CRM sync readiness."""
-
+"""Lead service — creation and updates. Score calculated EXCLUSIVELY in Python."""
 import logging
-
-from app.db import supabase as db
-from app.models.lead import Lead, calculate_lead_score, get_lead_tier
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-async def get_or_create_lead(conversation_id: str) -> Lead | None:
-    """Fetch existing lead for conversation, or create a new one."""
-    row = await db.get_lead_by_conversation(conversation_id)
-    if row:
-        return Lead(**row)
+def _calculate_score(lead: dict, conv: Optional[dict] = None) -> int:
+    """
+    Calculate lead score 0-100.
+    Mirrors the formula in app_settings (score_weight_*).
+    EXCLUSIVELY calculated in Python — NOT in a SQL trigger.
+    """
+    score = 0
+    has_name  = bool(lead.get("visitor_name")  or (conv and conv.get("visitor_name")))
+    has_email = bool(lead.get("visitor_email") or (conv and conv.get("visitor_email")))
+    has_phone = bool(lead.get("visitor_phone") or (conv and conv.get("visitor_phone")))
+    has_route = bool(lead.get("origin_code") and lead.get("destination_code"))
+    has_dates = bool(lead.get("departure_date"))
+    has_pax   = bool(lead.get("passengers"))
+    if has_name:   score += 20
+    if has_phone:  score += 15
+    if has_email:  score += 10
+    if has_route:  score += 15
+    if has_dates:  score += 10
+    if has_pax:    score += 10
+    return min(score, 100)
 
-    row = await db.create_lead(conversation_id)
-    if not row:
+
+async def get_or_create_lead(conversation_id: str) -> Optional[dict]:
+    try:
+        from app.db.supabase import get_client
+        res = get_client().table("leads").select("*").eq("conversation_id", conversation_id).limit(1).execute()
+        return res.data[0] if res.data else None
+    except Exception as e:
+        logger.error(f"get_or_create_lead error: {e}")
         return None
-    return Lead(**row)
 
 
-async def update_lead_from_entities(
-    conversation_id: str, entities: dict
-) -> Lead | None:
-    """Merge extracted entities into lead, recalculate score and tier."""
-    lead = await get_or_create_lead(conversation_id)
-    if not lead:
-        return None
+async def update_lead_from_entities(conversation_id: str, entities: dict) -> None:
+    """
+    Update lead with entities extracted by AI.
+    Creates lead if it doesn't exist and we have minimum useful data.
+    """
+    try:
+        from app.db.supabase import get_client
+        db_client = get_client()
 
-    # Merge only non-empty values
-    update_fields: dict = {}
-    for field in ["name", "email", "phone", "route", "travel_dates", "cabin_class", "notes"]:
-        value = entities.get(field)
-        if value:
-            update_fields[field] = value
+        res = db_client.table("leads").select("id,score").eq("conversation_id", conversation_id).limit(1).execute()
+        if not res.data:
+            has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination"])
+            if not has_useful:
+                return
+            lead_res = db_client.table("leads").insert({"conversation_id": conversation_id}).execute()
+            if not lead_res.data:
+                return
+            lead_id = lead_res.data[0]["id"]
+        else:
+            lead_id = res.data[0]["id"]
 
-    if "passengers" in entities and entities["passengers"]:
-        try:
-            update_fields["passengers"] = int(entities["passengers"])
-        except (ValueError, TypeError):
-            pass
+        # Update conversation with contact info
+        conv_payload: dict = {}
+        if entities.get("name"):   conv_payload["visitor_name"]  = entities["name"]
+        if entities.get("email"):  conv_payload["visitor_email"] = entities["email"]
+        if entities.get("phone"):  conv_payload["visitor_phone"] = entities["phone"]
+        if conv_payload:
+            db_client.table("conversations").update(conv_payload).eq("id", conversation_id).execute()
 
-    if not update_fields:
-        return lead
-
-    # Apply updates, recalculate score
-    updated_row = await db.update_lead(lead.id, **update_fields)
-    if not updated_row:
-        return lead
-
-    updated_lead = Lead(**updated_row)
-    new_score = calculate_lead_score(updated_lead)
-    new_tier = get_lead_tier(new_score)
-
-    if new_score != updated_lead.score or new_tier != updated_lead.tier:
-        await db.update_lead(lead.id, score=new_score, tier=new_tier)
-        updated_lead.score = new_score
-        updated_lead.tier = new_tier  # type: ignore[assignment]
-
-    return updated_lead
-
-
-def should_sync_to_crm(lead: Lead) -> bool:
-    """Return True if lead is gold tier (score >= 71)."""
-    return lead.score >= 71
+        # Recalculate score
+        lead_data = db_client.table("leads").select("*").eq("id", lead_id).single().execute().data or {}
+        conv_data = db_client.table("conversations").select("visitor_name,visitor_email,visitor_phone").eq("id", conversation_id).single().execute().data or {}
+        new_score = _calculate_score({**lead_data, **conv_data})
+        new_tier  = "gold" if new_score >= 80 else "silver" if new_score >= 50 else "bronze"
+        db_client.table("leads").update({"score": new_score, "tier": new_tier}).eq("id", lead_id).execute()
+    except Exception as e:
+        logger.error(f"update_lead_from_entities error: {e}")

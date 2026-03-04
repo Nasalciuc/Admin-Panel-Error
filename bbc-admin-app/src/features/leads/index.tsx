@@ -1,54 +1,226 @@
+import { useState, useEffect, useCallback } from 'react'
+import { Search, Filter, Phone, Mail, Plane, ChevronDown, RefreshCw } from 'lucide-react'
+import type { Lead, LeadsResponse } from '@/lib/types'
+import { MOCK_LEADS } from '@/lib/mock-data'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { Search } from '@/components/search'
-import { getLeads } from '@/lib/bbc/store'
+import { ProfileDropdown } from '@/components/profile-dropdown'
+import { ThemeSwitch } from '@/components/theme-switch'
+
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+const TIER_STYLES: Record<string, string> = {
+  gold:   'bg-yellow-100 text-yellow-800 border border-yellow-300',
+  silver: 'bg-gray-100 text-gray-700 border border-gray-300',
+  bronze: 'bg-orange-50 text-orange-700 border border-orange-300',
+}
+const STATUS_STYLES: Record<string, string> = {
+  new:       'bg-blue-50 text-blue-700 border border-blue-200',
+  contacted: 'bg-purple-50 text-purple-700 border border-purple-200',
+  qualified: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  converted: 'bg-green-50 text-green-700 border border-green-200',
+  lost:      'bg-red-50 text-red-600 border border-red-200',
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 80 ? 'text-yellow-700 bg-yellow-50' : score >= 50 ? 'text-gray-600 bg-gray-50' : 'text-orange-600 bg-orange-50'
+  return (
+    <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${color}`}>
+      {score}
+    </span>
+  )
+}
+
+function RouteDisplay({ lead }: { lead: Lead }) {
+  if (lead.route_display) return <span className="text-sm font-medium text-gray-900">{lead.route_display}</span>
+  if (lead.origin_code && lead.destination_code)
+    return (
+      <span className="text-sm font-medium text-gray-900 flex items-center gap-1">
+        {lead.origin_code}<Plane className="w-3 h-3 text-gray-400" />{lead.destination_code}
+      </span>
+    )
+  return <span className="text-sm text-gray-400 italic">No route</span>
+}
 
 export function Leads() {
-  const leads = getLeads()
+  const [leads, setLeads]           = useState<Lead[]>([])
+  const [total, setTotal]           = useState(0)
+  const [loading, setLoading]       = useState(true)
+  const [usingMock, setUsingMock]   = useState(false)
+  const [search, setSearch]         = useState('')
+  const [statusFilter, setStatus]   = useState('')
+  const [tierFilter, setTier]       = useState('')
+  const [offset, setOffset]         = useState(0)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const LIMIT = 50
+
+  const fetchLeads = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (search)       params.set('search', search)
+      if (statusFilter) params.set('status', statusFilter)
+      if (tierFilter)   params.set('tier', tierFilter)
+      params.set('limit', String(LIMIT))
+      params.set('offset', String(offset))
+      const res = await fetch(`${API}/api/leads?${params}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) throw new Error()
+      const json: LeadsResponse = await res.json()
+      setLeads(json.data); setTotal(json.total); setUsingMock(false)
+    } catch {
+      // Fallback to mock data when API is unreachable
+      let mock = MOCK_LEADS
+      if (statusFilter) mock = mock.filter(l => l.status === statusFilter)
+      if (tierFilter)   mock = mock.filter(l => l.tier === tierFilter)
+      if (search)       mock = mock.filter(l =>
+        [l.visitor_name, l.visitor_email, l.visitor_phone, l.origin_code, l.destination_code]
+          .some(v => v?.toLowerCase().includes(search.toLowerCase()))
+      )
+      setLeads(mock); setTotal(mock.length); setUsingMock(true)
+    } finally { setLoading(false) }
+  }, [search, statusFilter, tierFilter, offset])
+
+  useEffect(() => { fetchLeads() }, [fetchLeads])
+
+  const updateStatus = async (leadId: string, newStatus: string) => {
+    setUpdatingId(leadId)
+    try {
+      await fetch(`${API}/api/leads/${leadId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+    } finally {
+      // Optimistic update — works even in mock mode
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as Lead['status'] } : l))
+      setUpdatingId(null)
+    }
+  }
+
   return (
     <>
-      <Header fixed>
-        <Search />
-        <div className='ml-auto flex items-center space-x-4'>
-          <span className='text-sm text-muted-foreground'>{leads.length} leads</span>
+      <Header>
+        <div className='ms-auto flex items-center space-x-4'>
+          <ThemeSwitch />
+          <ProfileDropdown />
         </div>
       </Header>
       <Main>
-        <div className='mb-2 flex flex-wrap items-center justify-between space-y-2'>
-          <div>
-            <h2 className='text-2xl font-bold tracking-tight'>Leads</h2>
-            <p className='text-muted-foreground'>Leads captured from chatbot conversations</p>
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-[#0B1829]">Leads</h1>
+              <p className="text-sm text-gray-500 mt-0.5">{total} total{usingMock && ' · mock data'}</p>
+            </div>
+            <button onClick={fetchLeads}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#0B1829] bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />Refresh
+            </button>
           </div>
-        </div>
-        <div className='rounded-md border'>
-          <table className='w-full'>
-            <thead>
-              <tr className='border-b bg-muted/50'>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Name</th>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Email</th>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Route</th>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Intent</th>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Score</th>
-                <th className='h-12 px-4 text-left font-medium text-muted-foreground'>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} className='border-b hover:bg-muted/50'>
-                  <td className='p-4'><span className='font-medium'>{lead.name}</span></td>
-                  <td className='p-4 text-sm text-muted-foreground'>{lead.email}</td>
-                  <td className='p-4 text-sm font-mono'>{lead.route}</td>
-                  <td className='p-4'><span className='rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700'>{lead.intent}</span></td>
-                  <td className='p-4'><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${lead.score >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{lead.score}</span></td>
-                  <td className='p-4'><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    lead.status === 'New' ? 'bg-blue-100 text-blue-700' :
-                    lead.status === 'Contacted' ? 'bg-yellow-100 text-yellow-700' :
-                    lead.status === 'Converted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>{lead.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input type="text" placeholder="Search name, email, route..." value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40 focus:border-[#C9A54E]" />
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <select value={statusFilter} onChange={e => { setStatus(e.target.value); setOffset(0) }}
+                className="pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40">
+                <option value="">All Status</option>
+                <option value="new">New</option><option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option><option value="converted">Converted</option>
+                <option value="lost">Lost</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select value={tierFilter} onChange={e => { setTier(e.target.value); setOffset(0) }}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-[#C9A54E]/40">
+                <option value="">All Tiers</option>
+                <option value="gold">Gold</option><option value="silver">Silver</option><option value="bronze">Bronze</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            {loading ? (
+              <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Loading leads...</div>
+            ) : leads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                <Plane className="w-8 h-8 mb-2 opacity-30" /><p className="text-sm">No leads found</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    {['Score', 'Contact', 'Route', 'Tier', 'Status', 'Departure', 'Action'].map(h => (
+                      <th key={h} className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {leads.map(lead => (
+                    <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3"><ScoreBadge score={lead.score} /></td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">
+                          {lead.visitor_name ?? <span className="text-gray-400 italic text-xs">Anonymous</span>}
+                        </div>
+                        {lead.visitor_phone && <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5"><Phone className="w-3 h-3" />{lead.visitor_phone}</div>}
+                        {lead.visitor_email && <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5"><Mail className="w-3 h-3" />{lead.visitor_email}</div>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <RouteDisplay lead={lead} />
+                        <div className="text-xs text-gray-400 mt-0.5 capitalize">
+                          {lead.trip_type.replace('_', '-')}{lead.passengers ? ` · ${lead.passengers} pax` : ''}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_STYLES[lead.tier]}`}>
+                          {lead.tier}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[lead.status]}`}>
+                          {lead.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{lead.departure_date ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="px-4 py-3">
+                        <select value={lead.status} disabled={updatingId === lead.id}
+                          onChange={e => updateStatus(lead.id, e.target.value)}
+                          className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#C9A54E] disabled:opacity-50">
+                          <option value="new">New</option><option value="contacted">Contacted</option>
+                          <option value="qualified">Qualified</option><option value="converted">Converted</option>
+                          <option value="lost">Lost</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {total > LIMIT && (
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <span>Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setOffset(Math.max(0, offset - LIMIT))} disabled={offset === 0}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
+                <button onClick={() => setOffset(offset + LIMIT)} disabled={offset + LIMIT >= total}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
+              </div>
+            </div>
+          )}
         </div>
       </Main>
     </>
