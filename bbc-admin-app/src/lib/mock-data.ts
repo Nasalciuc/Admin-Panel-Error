@@ -166,5 +166,57 @@ export const MOCK_STATS: DashboardStats = {
     { date: '2026-03-02', count: 9  }, { date: '2026-03-03', count: 19 },
     { date: '2026-03-04', count: 12 },
   ],
-  leads_trend: [],
+  leads_trend: [
+    { date: '2026-02-27', count: 5 }, { date: '2026-02-28', count: 8 },
+    { date: '2026-03-01', count: 6 }, { date: '2026-03-02', count: 12 },
+    { date: '2026-03-03', count: 9 }, { date: '2026-03-04', count: 7 },
+    { date: '2026-03-05', count: 8 },
+  ],
+
+  // === V2 ADDITIONS ===
+  conversations_yesterday: 10,
+  leads_uncalled: 3,
+  leads_sla_breach: 1,
+  cost_avg_30d: 0.82,
+  daily_budget: 50.00,
+  latency_median_ms: 1200,
+  fallback_rate_percent: 3.2,
+  cost_vs_budget_percent: 2.48,
+  avg_duration_minutes: 4.5,
+  messages_total_month: 1248,
+
+  conversations_trend_v2: [
+    { date: '2026-02-20', sales: 18, support: 9 },
+    { date: '2026-02-21', sales: 22, support: 11 },
+    { date: '2026-02-22', sales: 15, support: 7 },
+    { date: '2026-02-23', sales: 25, support: 13 },
+    { date: '2026-02-24', sales: 20, support: 10 },
+    { date: '2026-02-25', sales: 8, support: 4 },
+    { date: '2026-02-26', sales: 6, support: 3 },
+    { date: '2026-02-27', sales: 21, support: 12 },
+    { date: '2026-02-28', sales: 28, support: 14 },
+    { date: '2026-03-01', sales: 24, support: 11 },
+    { date: '2026-03-02', sales: 19, support: 8 },
+    { date: '2026-03-03', sales: 30, support: 15 },
+    { date: '2026-03-04', sales: 12, support: 5 },
+    { date: '2026-03-05', sales: 9, support: 4 },
+  ],
+
+  hot_leads: [
+    { id: 'hl-1', visitor_name: 'John Smith', route: 'JFK → LHR', score: 92, tier: 'gold' as const, minutes_since_created: 180 },
+    { id: 'hl-2', visitor_name: 'Maria Garcia', route: 'LAX → CDG', score: 87, tier: 'gold' as const, minutes_since_created: 45 },
+    { id: 'hl-3', visitor_name: null, route: 'SFO → NRT', score: 85, tier: 'gold' as const, minutes_since_created: 20 },
+    { id: 'hl-4', visitor_name: 'David Wilson', route: 'ORD → LHR', score: 78, tier: 'silver' as const, minutes_since_created: 95 },
+    { id: 'hl-5', visitor_name: 'Emma Davis', route: 'MIA → DXB', score: 72, tier: 'silver' as const, minutes_since_created: 10 },
+  ],
+
+  leads_sparkline_7d: [5, 8, 6, 12, 9, 7, 8],
+
+  funnel: [
+    { name: 'New', count: 8, color: '#3b82f6' },
+    { name: 'Contacted', count: 18, color: '#f59e0b' },
+    { name: 'Qualified', count: 10, color: '#8b5cf6' },
+    { name: 'Converted', count: 7, color: '#22c55e' },
+    { name: 'Lost', count: 5, color: '#ef4444' },
+  ],
 }

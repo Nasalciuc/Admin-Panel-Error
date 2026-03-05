@@ -119,4 +119,31 @@ export interface DashboardStats {
   top_routes:          Array<{ route: string; count: number }>
   conversations_trend: Array<{ date: string; count: number }>
   leads_trend:         Array<{ date: string; count: number }>
+
+  // === V2 ADDITIONS ===
+  conversations_yesterday: number
+  leads_uncalled:          number
+  leads_sla_breach:        number
+  cost_avg_30d:            number
+  daily_budget:            number
+  latency_median_ms:       number
+  fallback_rate_percent:   number
+  cost_vs_budget_percent:  number
+  avg_duration_minutes:    number
+  messages_total_month:    number
+
+  conversations_trend_v2: Array<{ date: string; sales: number; support: number }>
+
+  hot_leads: Array<{
+    id: string
+    visitor_name: string | null
+    route: string
+    score: number
+    tier: 'gold' | 'silver' | 'bronze'
+    minutes_since_created: number
+  }>
+
+  leads_sparkline_7d: number[]
+
+  funnel: Array<{ name: string; count: number; color: string }>
 }
