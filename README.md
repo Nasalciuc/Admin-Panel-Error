@@ -37,6 +37,62 @@ A modern React + TypeScript admin dashboard for managing AI-powered conversation
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for detailed tech stack decisions and [`docs/INFRASTRUCTURE-TCO.md`](docs/INFRASTRUCTURE-TCO.md) for 3-year cost analysis.
 
+## 🏛️ System Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend["🎨 Frontend (React + TypeScript)"]
+        Dashboard["📊 Dashboard<br/>Stats & Metrics"]
+        Conversations["💬 Conversations<br/>Chat Browse"]
+        Leads["👥 Leads<br/>Scoring & CRM"]
+        KB["📚 Knowledge Base<br/>CRUD Entries"]
+        Auth["🔐 Auth<br/>JWT + Zustand"]
+    end
+
+    subgraph Backend["🧠 Backend (FastAPI + Python)"]
+        ChatAPI["POST /api/chat<br/>Main Endpoint"]
+        Pipeline["8-Step AI Pipeline"]
+        IntentDetect["Intent Detection<br/>Claude Haiku"]
+        KBSearch["KB Search<br/>Qdrant Vector"]
+        ResponseGen["Response Generation<br/>Claude Sonnet"]
+        Validation["Response Validation<br/>Rules Engine"]
+    end
+
+    subgraph Data["💾 Data Layer (Supabase)"]
+        DB["PostgreSQL<br/>9 Tables"]
+        VectorDB["pgvector<br/>Embeddings"]
+        Qdrant["☁️ Qdrant Cloud<br/>KB Vectors"]
+    end
+
+    subgraph External["🔌 External Services"]
+        Claude["Anthropic Claude<br/>API"]
+        Supabase["Supabase<br/>Auth + DB"]
+        Railway["Railway<br/>Hosting"]
+        Vercel["Vercel<br/>Frontend CDN"]
+    end
+
+    Frontend -->|HTTP/HTTPS| ChatAPI
+    Frontend -->|React Query| Backend
+    ChatAPI --> Pipeline
+    Pipeline --> IntentDetect
+    Pipeline --> KBSearch
+    Pipeline --> ResponseGen
+    IntentDetect --> Claude
+    ResponseGen --> Claude
+    KBSearch --> Qdrant
+    Pipeline --> Validation
+    Backend -->|Save/Read| DB
+    DB -->|pgvector| VectorDB
+    Frontend -->|Auth| Supabase
+    Backend -->|Config| Railway
+    Frontend -->|Deploy| Vercel
+
+    style Frontend fill:#e1f5ff
+    style Backend fill:#f3e5f5
+    style Data fill:#e8f5e9
+    style External fill:#fff3e0
+```
+
 ## 📁 Project Structure
 
 ```
