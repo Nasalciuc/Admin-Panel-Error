@@ -138,7 +138,34 @@ class KBEntryUpdate(BaseModel):
 
 
 # ── Dashboard ─────────────────────────────────────────────────
+class TopRoute(BaseModel):
+    route: str
+    count: int
+
+class TrendItem(BaseModel):
+    date: str
+    count: int
+
+class TrendItemV2(BaseModel):
+    date: str
+    sales: int
+    support: int
+
+class HotLead(BaseModel):
+    id: str
+    visitor_name: Optional[str] = None
+    route: str
+    score: int
+    tier: str
+    minutes_since_created: int
+
+class FunnelItem(BaseModel):
+    name: str
+    count: int
+    color: str
+
 class DashboardStats(BaseModel):
+    # V1 fields
     conversations_today: int = 0
     conversations_week: int = 0
     conversations_month: int = 0
@@ -155,6 +182,22 @@ class DashboardStats(BaseModel):
     cost_today: float = 0.0
     cost_week: float = 0.0
     cost_month: float = 0.0
-    top_routes: List[dict] = []
-    conversations_trend: List[dict] = []
-    leads_trend: List[dict] = []
+    top_routes: List[TopRoute] = []
+    conversations_trend: List[TrendItem] = []
+    leads_trend: List[TrendItem] = []
+
+    # V2 fields
+    conversations_yesterday: int = 0
+    leads_uncalled: int = 0
+    leads_sla_breach: int = 0
+    cost_avg_30d: float = 0.0
+    daily_budget: float = 50.0
+    latency_median_ms: int = 0
+    fallback_rate_percent: float = 0.0
+    cost_vs_budget_percent: float = 0.0
+    avg_duration_minutes: float = 0.0
+    messages_total_month: int = 0
+    conversations_trend_v2: List[TrendItemV2] = []
+    hot_leads: List[HotLead] = []
+    leads_sparkline_7d: List[int] = []
+    funnel: List[FunnelItem] = []

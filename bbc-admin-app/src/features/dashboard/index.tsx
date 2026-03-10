@@ -1,5 +1,6 @@
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import {
@@ -18,6 +19,7 @@ export function Dashboard() {
     <>
       <Header>
         <div className='ms-auto flex items-center space-x-4'>
+          <ConnectionBanner />
           <ThemeSwitch />
           <ProfileDropdown />
         </div>

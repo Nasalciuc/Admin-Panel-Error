@@ -1,8 +1,13 @@
 """Supabase DB client — all queries for BBC Chatbot.
 Client: supabase-py (HTTP). NO asyncpg. NO SQLAlchemy.
 """
+import asyncio
 import logging
+import statistics
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
+
 from supabase import create_client, Client
 from config.settings import settings
 
@@ -10,12 +15,35 @@ logger = logging.getLogger(__name__)
 
 _client: Optional[Client] = None
 
+# Dedicated thread pool for sync supabase-py calls (D-01)
+_executor = ThreadPoolExecutor(max_workers=20)
+
+
+async def _run_sync(fn):
+    """Run a sync supabase-py call on thread pool to avoid blocking event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_executor, fn)
+
 
 def get_client() -> Client:
     global _client
     if _client is None:
         _client = create_client(settings.supabase_url, settings.supabase_key)
     return _client
+
+
+# ════════════════════════════════════════════════════════════════
+# HEALTH CHECK
+# ════════════════════════════════════════════════════════════════
+
+async def check_connection() -> bool:
+    """Check if Supabase is reachable."""
+    try:
+        db = get_client()
+        await _run_sync(lambda: db.table("kb_categories").select("id").limit(1).execute())
+        return True
+    except Exception:
+        return False
 
 
 # ════════════════════════════════════════════════════════════════
@@ -31,14 +59,14 @@ async def get_or_create_conversation(
     try:
         db = get_client()
         if conversation_id:
-            res = db.table("conversations").select("*").eq("id", conversation_id).single().execute()
+            res = await _run_sync(lambda: db.table("conversations").select("*").eq("id", conversation_id).single().execute())
             if res.data:
                 return res.data
         payload: dict = {"tunnel": tunnel, "mode": "ai", "status": "active"}
         if visitor and visitor.name:  payload["visitor_name"]  = visitor.name
         if visitor and visitor.email: payload["visitor_email"] = visitor.email
         if visitor and visitor.phone: payload["visitor_phone"] = visitor.phone
-        res = db.table("conversations").insert(payload).execute()
+        res = await _run_sync(lambda: db.table("conversations").insert(payload).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"get_or_create_conversation error: {e}")
@@ -58,7 +86,7 @@ async def add_message(
         payload: dict = {"conversation_id": conversation_id, "role": role, "content": content, "cost": cost}
         if model_used:
             payload["model_used"] = model_used
-        res = db.table("messages").insert(payload).execute()
+        res = await _run_sync(lambda: db.table("messages").insert(payload).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"add_message error: {e}")
@@ -68,7 +96,7 @@ async def add_message(
 async def count_messages(conversation_id: str) -> int:
     try:
         db = get_client()
-        res = db.table("messages").select("id", count="exact").eq("conversation_id", conversation_id).execute()
+        res = await _run_sync(lambda: db.table("messages").select("id", count="exact").eq("conversation_id", conversation_id).execute())
         return res.count or 0
     except Exception:
         return 0
@@ -78,14 +106,16 @@ async def get_recent_messages(conversation_id: str, limit: int = 5) -> list:
     """Last N messages from a conversation (for AI context)."""
     try:
         db = get_client()
-        res = (
-            db.table("messages")
-            .select("role,content,model_used,created_at")
-            .eq("conversation_id", conversation_id)
-            .order("created_at", desc=False)
-            .limit(limit)
-            .execute()
-        )
+        def _query():
+            return (
+                db.table("messages")
+                .select("role,content,model_used,created_at")
+                .eq("conversation_id", conversation_id)
+                .order("created_at", desc=False)
+                .limit(limit)
+                .execute()
+            )
+        res = await _run_sync(_query)
         return res.data or []
     except Exception:
         return []
@@ -96,15 +126,17 @@ async def keyword_search_kb(keywords: list[str], tunnel: str = "sales", limit: i
     try:
         db = get_client()
         query = " | ".join(keywords)
-        res = (
-            db.table("kb_entries")
-            .select("id,title,content,tunnel")
-            .eq("is_active", True)
-            .eq("tunnel", tunnel)
-            .text_search("search_vector", query)
-            .limit(limit)
-            .execute()
-        )
+        def _query():
+            return (
+                db.table("kb_entries")
+                .select("id,title,content,tunnel")
+                .eq("is_active", True)
+                .eq("tunnel", tunnel)
+                .text_search("search_vector", query)
+                .limit(limit)
+                .execute()
+            )
+        res = await _run_sync(_query)
         return res.data or []
     except Exception as e:
         logger.warning(f"keyword_search_kb error: {e}")
@@ -125,16 +157,18 @@ async def get_conversations(
     """List conversations with filters. Returns (rows, total_count)."""
     try:
         db = get_client()
-        q = db.table("conversations").select("*", count="exact").order("created_at", desc=True)
-        if tunnel:  q = q.eq("tunnel", tunnel)
-        if status:  q = q.eq("status", status)
-        if search:
-            q = q.or_(
-                f"visitor_name.ilike.%{search}%,"
-                f"visitor_email.ilike.%{search}%,"
-                f"visitor_phone.ilike.%{search}%"
-            )
-        res = q.range(offset, offset + limit - 1).execute()
+        def _query():
+            q = db.table("conversations").select("*", count="exact").order("created_at", desc=True)
+            if tunnel:  q = q.eq("tunnel", tunnel)
+            if status:  q = q.eq("status", status)
+            if search:
+                q = q.or_(
+                    f"visitor_name.ilike.%{search}%,"
+                    f"visitor_email.ilike.%{search}%,"
+                    f"visitor_phone.ilike.%{search}%"
+                )
+            return q.range(offset, offset + limit - 1).execute()
+        res = await _run_sync(_query)
         return res.data or [], res.count or 0
     except Exception as e:
         logger.error(f"get_conversations error: {e}")
@@ -145,11 +179,13 @@ async def get_conversation(conversation_id: str) -> Optional[dict]:
     """One conversation + all its messages."""
     try:
         db = get_client()
-        conv = db.table("conversations").select("*").eq("id", conversation_id).single().execute()
+        conv = await _run_sync(
+            lambda: db.table("conversations").select("*").eq("id", conversation_id).single().execute()
+        )
         if not conv.data:
             return None
-        msgs = (
-            db.table("messages")
+        msgs = await _run_sync(
+            lambda: db.table("messages")
             .select("*")
             .eq("conversation_id", conversation_id)
             .order("created_at", desc=False)
@@ -166,7 +202,7 @@ async def get_conversation(conversation_id: str) -> Optional[dict]:
 async def update_conversation(conversation_id: str, payload: dict) -> Optional[dict]:
     try:
         db = get_client()
-        res = db.table("conversations").update(payload).eq("id", conversation_id).execute()
+        res = await _run_sync(lambda: db.table("conversations").update(payload).eq("id", conversation_id).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"update_conversation error: {e}")
@@ -188,21 +224,23 @@ async def get_leads(
     """List leads with JOIN on conversations for contact details. Returns (rows, total_count)."""
     try:
         db = get_client()
-        q = db.table("leads").select(
-            "*, conversations!inner(visitor_name, visitor_email, visitor_phone, tunnel)",
-            count="exact"
-        ).order("score", desc=True)
-        if status:  q = q.eq("status", status)
-        if tier:    q = q.eq("tier", tier)
-        if tunnel:  q = q.eq("conversations.tunnel", tunnel)
-        if search:
-            q = q.or_(
-                f"conversations.visitor_name.ilike.%{search}%,"
-                f"conversations.visitor_email.ilike.%{search}%,"
-                f"origin_code.ilike.%{search}%,"
-                f"destination_code.ilike.%{search}%"
-            )
-        res = q.range(offset, offset + limit - 1).execute()
+        def _query():
+            q = db.table("leads").select(
+                "*, conversations!inner(visitor_name, visitor_email, visitor_phone, tunnel)",
+                count="exact"
+            ).order("score", desc=True)
+            if status:  q = q.eq("status", status)
+            if tier:    q = q.eq("tier", tier)
+            if tunnel:  q = q.eq("conversations.tunnel", tunnel)
+            if search:
+                q = q.or_(
+                    f"conversations.visitor_name.ilike.%{search}%,"
+                    f"conversations.visitor_email.ilike.%{search}%,"
+                    f"origin_code.ilike.%{search}%,"
+                    f"destination_code.ilike.%{search}%"
+                )
+            return q.range(offset, offset + limit - 1).execute()
+        res = await _run_sync(_query)
         rows = []
         for row in (res.data or []):
             flat = dict(row)
@@ -221,15 +259,15 @@ async def get_lead_full(lead_id: str) -> Optional[dict]:
     """Full lead: lead + conversation contact info + route_segments."""
     try:
         db = get_client()
-        lead_res = (
-            db.table("leads")
+        lead_res = await _run_sync(
+            lambda: db.table("leads")
             .select("*, conversations(visitor_name, visitor_email, visitor_phone, tunnel, metadata)")
             .eq("id", lead_id).single().execute()
         )
         if not lead_res.data:
             return None
-        segs_res = (
-            db.table("route_segments").select("*")
+        segs_res = await _run_sync(
+            lambda: db.table("route_segments").select("*")
             .eq("lead_id", lead_id).order("segment_order", desc=False).execute()
         )
         result = dict(lead_res.data)
@@ -251,7 +289,7 @@ async def update_lead(lead_id: str, payload: dict) -> Optional[dict]:
         if "score" in payload:
             s = payload["score"]
             payload["tier"] = "gold" if s >= 80 else "silver" if s >= 50 else "bronze"
-        res = db.table("leads").update(payload).eq("id", lead_id).execute()
+        res = await _run_sync(lambda: db.table("leads").update(payload).eq("id", lead_id).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"update_lead error: {e}")
@@ -266,10 +304,12 @@ async def get_kb_categories(tunnel: Optional[str] = None) -> list:
     """KB categories with article count per category."""
     try:
         db = get_client()
-        q = db.table("kb_categories").select("*, kb_entries(count)").order("sort_order")
-        if tunnel:
-            q = q.eq("tunnel", tunnel)
-        res = q.execute()
+        def _query():
+            q = db.table("kb_categories").select("*, kb_entries(count)").order("sort_order")
+            if tunnel:
+                q = q.eq("tunnel", tunnel)
+            return q.execute()
+        res = await _run_sync(_query)
         result = []
         for row in (res.data or []):
             flat = dict(row)
@@ -290,11 +330,13 @@ async def get_kb_entries(
 ) -> list:
     try:
         db = get_client()
-        q = db.table("kb_entries").select("*").order("updated_at", desc=True)
-        if tunnel:      q = q.eq("tunnel", tunnel)
-        if category_id: q = q.eq("category_id", category_id)
-        if is_active is not None: q = q.eq("is_active", is_active)
-        res = q.limit(limit).execute()
+        def _query():
+            q = db.table("kb_entries").select("*").order("updated_at", desc=True)
+            if tunnel:      q = q.eq("tunnel", tunnel)
+            if category_id: q = q.eq("category_id", category_id)
+            if is_active is not None: q = q.eq("is_active", is_active)
+            return q.limit(limit).execute()
+        res = await _run_sync(_query)
         return res.data or []
     except Exception as e:
         logger.error(f"get_kb_entries error: {e}")
@@ -304,7 +346,7 @@ async def get_kb_entries(
 async def create_kb_entry(payload: dict) -> Optional[dict]:
     try:
         db = get_client()
-        res = db.table("kb_entries").insert(payload).execute()
+        res = await _run_sync(lambda: db.table("kb_entries").insert(payload).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"create_kb_entry error: {e}")
@@ -314,7 +356,7 @@ async def create_kb_entry(payload: dict) -> Optional[dict]:
 async def update_kb_entry(entry_id: str, payload: dict) -> Optional[dict]:
     try:
         db = get_client()
-        res = db.table("kb_entries").update(payload).eq("id", entry_id).execute()
+        res = await _run_sync(lambda: db.table("kb_entries").update(payload).eq("id", entry_id).execute())
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"update_kb_entry error: {e}")
@@ -324,7 +366,7 @@ async def update_kb_entry(entry_id: str, payload: dict) -> Optional[dict]:
 async def delete_kb_entry(entry_id: str) -> bool:
     try:
         db = get_client()
-        db.table("kb_entries").delete().eq("id", entry_id).execute()
+        await _run_sync(lambda: db.table("kb_entries").delete().eq("id", entry_id).execute())
         return True
     except Exception as e:
         logger.error(f"delete_kb_entry error: {e}")
@@ -336,76 +378,251 @@ async def delete_kb_entry(entry_id: str) -> bool:
 # ════════════════════════════════════════════════════════════════
 
 async def get_dashboard_stats() -> dict:
-    """Dashboard statistics. All queries independent with fallback to 0."""
-    db = get_client()
-    stats: dict = {}
+    """Dashboard statistics — all fields expected by frontend DashboardStats interface.
+    Fetches bulk data via _run_sync, then processes in Python.
+    """
+    try:
+        db = get_client()
 
-    def safe(fn):
-        try:   return fn()
-        except: return None
+        # ── Fetch all conversations ───────────────────────────
+        convos = await _run_sync(lambda: db.table("conversations").select(
+            "id, tunnel, status, created_at, closed_at", count="exact"
+        ).execute())
+        all_convos = convos.data or []
 
-    # Conversation counts
-    r = safe(lambda: db.table("conversations").select("id", count="exact").gte("created_at", "now() - interval '1 day'").execute())
-    stats["conversations_today"] = r.count if r else 0
-
-    r = safe(lambda: db.table("conversations").select("id", count="exact").gte("created_at", "now() - interval '7 days'").execute())
-    stats["conversations_week"] = r.count if r else 0
-
-    r = safe(lambda: db.table("conversations").select("id", count="exact").gte("created_at", "now() - interval '30 days'").execute())
-    stats["conversations_month"] = r.count if r else 0
-
-    r = safe(lambda: db.table("conversations").select("id", count="exact").eq("status", "active").execute())
-    stats["conversations_active"] = r.count if r else 0
-
-    # Leads by status
-    r = safe(lambda: db.table("leads").select("id", count="exact").execute())
-    stats["leads_total"] = r.count if r else 0
-
-    for s in ["new", "contacted", "qualified", "converted", "lost"]:
-        r = safe(lambda s=s: db.table("leads").select("id", count="exact").eq("status", s).execute())
-        stats[f"leads_{s}"] = r.count if r else 0
-
-    for t in ["gold", "silver", "bronze"]:
-        r = safe(lambda t=t: db.table("leads").select("id", count="exact").eq("tier", t).execute())
-        stats[f"leads_{t}"] = r.count if r else 0
-
-    # AI costs (from pipeline_runs)
-    r = safe(lambda: db.table("pipeline_runs").select("cost").gte("created_at", "now() - interval '1 day'").execute())
-    stats["cost_today"] = round(sum(x["cost"] for x in (r.data or [])), 4)
-
-    r = safe(lambda: db.table("pipeline_runs").select("cost").gte("created_at", "now() - interval '7 days'").execute())
-    stats["cost_week"] = round(sum(x["cost"] for x in (r.data or [])), 4)
-
-    r = safe(lambda: db.table("pipeline_runs").select("cost").gte("created_at", "now() - interval '30 days'").execute())
-    stats["cost_month"] = round(sum(x["cost"] for x in (r.data or [])), 4)
-
-    # Top routes
-    r = safe(lambda: db.table("leads").select("origin_code,destination_code").not_.is_("origin_code", "null").limit(200).execute())
-    if r and r.data:
         from collections import Counter
-        counts = Counter(
-            f"{x['origin_code']}→{x['destination_code']}"
-            for x in r.data if x.get("destination_code")
+
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+
+        def parse_dt(s):
+            if not s:
+                return None
+            try:
+                return datetime.fromisoformat(s.replace("Z", "+00:00"))
+            except Exception:
+                return None
+
+        conversations_today = sum(
+            1 for c in all_convos
+            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= today_start
         )
-        stats["top_routes"] = [{"route": k, "count": v} for k, v in counts.most_common(5)]
-    else:
-        stats["top_routes"] = []
+        conversations_yesterday = sum(
+            1 for c in all_convos
+            if parse_dt(c.get("created_at"))
+            and yesterday_start <= parse_dt(c["created_at"]) < today_start
+        )
+        conversations_week = sum(
+            1 for c in all_convos
+            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= week_ago
+        )
+        conversations_month = sum(
+            1 for c in all_convos
+            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= month_ago
+        )
+        conversations_active = sum(
+            1 for c in all_convos if c.get("status") == "active"
+        )
 
-    # Conversations trend (last 7 days)
-    r = safe(lambda: db.table("conversations").select("created_at").gte("created_at", "now() - interval '7 days'").execute())
-    if r and r.data:
-        from datetime import datetime, timedelta
-        from collections import defaultdict
-        day_counts: dict = defaultdict(int)
-        for row in r.data:
-            day_counts[row["created_at"][:10]] += 1
-        today_dt = datetime.utcnow().date()
-        stats["conversations_trend"] = [
-            {"date": str(today_dt - timedelta(days=i)), "count": day_counts.get(str(today_dt - timedelta(days=i)), 0)}
-            for i in range(6, -1, -1)
+        # ── Fetch all leads ───────────────────────────────────
+        leads_res = await _run_sync(lambda: db.table("leads").select(
+            "id, score, tier, status, origin_code, destination_code, "
+            "route_display, created_at, conversation_id"
+        ).execute())
+        all_leads = leads_res.data or []
+
+        leads_total = len(all_leads)
+        leads_new = sum(1 for l in all_leads if l.get("status") == "new")
+        leads_contacted = sum(1 for l in all_leads if l.get("status") == "contacted")
+        leads_qualified = sum(1 for l in all_leads if l.get("status") == "qualified")
+        leads_converted = sum(1 for l in all_leads if l.get("status") == "converted")
+        leads_lost = sum(1 for l in all_leads if l.get("status") == "lost")
+        leads_gold = sum(1 for l in all_leads if l.get("tier") == "gold")
+        leads_silver = sum(1 for l in all_leads if l.get("tier") == "silver")
+        leads_bronze = sum(1 for l in all_leads if l.get("tier") == "bronze")
+        leads_uncalled = leads_new
+
+        # SLA breach — new leads older than 2 hours
+        sla_cutoff = now - timedelta(hours=2)
+        leads_sla_breach = sum(
+            1 for l in all_leads
+            if l.get("status") == "new" and parse_dt(l.get("created_at"))
+            and parse_dt(l["created_at"]) < sla_cutoff
+        )
+
+        # ── Pipeline runs (cost, latency, fallback) ──────────
+        pipeline_res = await _run_sync(lambda: db.table("pipeline_runs").select(
+            "cost, latency_ms, status, had_fallback, tunnel, created_at"
+        ).execute())
+        all_runs = pipeline_res.data or []
+
+        cost_today = sum(
+            float(r.get("cost", 0)) for r in all_runs
+            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= today_start
+        )
+        cost_week = sum(
+            float(r.get("cost", 0)) for r in all_runs
+            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= week_ago
+        )
+        cost_month = sum(
+            float(r.get("cost", 0)) for r in all_runs
+            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= month_ago
+        )
+
+        latencies = [r["latency_ms"] for r in all_runs if r.get("latency_ms")]
+        latency_median = round(statistics.median(latencies)) if latencies else 0
+
+        total_runs = len(all_runs)
+        fallback_count = sum(1 for r in all_runs if r.get("had_fallback") or r.get("status") == "fallback")
+        fallback_rate = (fallback_count / total_runs * 100) if total_runs > 0 else 0
+
+        daily_budget = settings.daily_budget
+        cost_vs_budget = (cost_today / daily_budget * 100) if daily_budget > 0 else 0
+
+        # ── avg_duration_minutes — from closed conversations ──
+        durations = []
+        for c in all_convos:
+            if c.get("status") == "closed" and c.get("closed_at"):
+                start = parse_dt(c.get("created_at"))
+                end = parse_dt(c.get("closed_at"))
+                if start and end:
+                    durations.append((end - start).total_seconds() / 60)
+        avg_duration_minutes = round(statistics.mean(durations), 1) if durations else 0.0
+
+        # ── Messages total month ─────────────────────────────
+        msgs_res = await _run_sync(lambda: db.table("messages").select("id", count="exact").execute())
+        messages_total_month = msgs_res.count or 0
+
+        # ── Top routes ────────────────────────────────────────
+        route_counter: Counter = Counter()
+        for l in all_leads:
+            origin = l.get("origin_code", "")
+            dest = l.get("destination_code", "")
+            if origin and dest:
+                route_counter[f"{origin} → {dest}"] += 1
+        top_routes = [{"route": r, "count": c} for r, c in route_counter.most_common(5)]
+
+        # ── Conversations trend (14 days) ─────────────────────
+        conversations_trend = []
+        conversations_trend_v2 = []
+        for i in range(13, -1, -1):
+            day = today_start - timedelta(days=i)
+            day_str = day.strftime("%Y-%m-%d")
+            day_convos = [
+                c for c in all_convos
+                if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]).date() == day.date()
+            ]
+            conversations_trend.append({"date": day_str, "count": len(day_convos)})
+            sales = sum(1 for c in day_convos if c.get("tunnel") == "sales")
+            support = sum(1 for c in day_convos if c.get("tunnel") == "support")
+            conversations_trend_v2.append({"date": day_str, "sales": sales, "support": support})
+
+        # ── Leads trend (14 days) ─────────────────────────────
+        leads_trend = []
+        for i in range(13, -1, -1):
+            day = today_start - timedelta(days=i)
+            day_str = day.strftime("%Y-%m-%d")
+            day_leads = [
+                l for l in all_leads
+                if parse_dt(l.get("created_at")) and parse_dt(l["created_at"]).date() == day.date()
+            ]
+            leads_trend.append({"date": day_str, "count": len(day_leads)})
+
+        # ── Leads sparkline 7d ────────────────────────────────
+        leads_sparkline_7d = []
+        for i in range(6, -1, -1):
+            day = today_start - timedelta(days=i)
+            count = sum(
+                1 for l in all_leads
+                if parse_dt(l.get("created_at")) and parse_dt(l["created_at"]).date() == day.date()
+            )
+            leads_sparkline_7d.append(count)
+
+        # ── Hot leads (top 5 by score, new status) ────────────
+        hot_leads = []
+        new_leads_sorted = sorted(
+            [l for l in all_leads if l.get("status") == "new"],
+            key=lambda x: x.get("score", 0), reverse=True
+        )[:5]
+        for l in new_leads_sorted:
+            created = parse_dt(l.get("created_at"))
+            minutes_since = int((now - created).total_seconds() / 60) if created else 0
+            conv_res = await _run_sync(
+                lambda cid=l.get("conversation_id", ""):
+                db.table("conversations").select("visitor_name").eq("id", cid).limit(1).execute()
+            )
+            visitor_name = conv_res.data[0].get("visitor_name") if conv_res.data else None
+            hot_leads.append({
+                "id": l["id"],
+                "visitor_name": visitor_name,
+                "route": l.get("route_display") or f"{l.get('origin_code', '?')} → {l.get('destination_code', '?')}",
+                "score": l.get("score", 0),
+                "tier": l.get("tier", "bronze"),
+                "minutes_since_created": minutes_since,
+            })
+
+        # ── Funnel ────────────────────────────────────────────
+        funnel = [
+            {"name": "New", "count": leads_new, "color": "#3b82f6"},
+            {"name": "Contacted", "count": leads_contacted, "color": "#f59e0b"},
+            {"name": "Qualified", "count": leads_qualified, "color": "#8b5cf6"},
+            {"name": "Converted", "count": leads_converted, "color": "#22c55e"},
+            {"name": "Lost", "count": leads_lost, "color": "#ef4444"},
         ]
-    else:
-        stats["conversations_trend"] = []
 
-    stats["leads_trend"] = []
-    return stats
+        return {
+            "conversations_today": conversations_today,
+            "conversations_yesterday": conversations_yesterday,
+            "conversations_week": conversations_week,
+            "conversations_month": conversations_month,
+            "conversations_active": conversations_active,
+            "leads_total": leads_total,
+            "leads_new": leads_new,
+            "leads_contacted": leads_contacted,
+            "leads_qualified": leads_qualified,
+            "leads_converted": leads_converted,
+            "leads_lost": leads_lost,
+            "leads_gold": leads_gold,
+            "leads_silver": leads_silver,
+            "leads_bronze": leads_bronze,
+            "cost_today": round(cost_today, 4),
+            "cost_week": round(cost_week, 4),
+            "cost_month": round(cost_month, 4),
+            "top_routes": top_routes,
+            "conversations_trend": conversations_trend,
+            "leads_trend": leads_trend,
+            "leads_uncalled": leads_uncalled,
+            "leads_sla_breach": leads_sla_breach,
+            "cost_avg_30d": round(cost_month / 30, 4) if cost_month else 0,
+            "daily_budget": daily_budget,
+            "latency_median_ms": latency_median,
+            "fallback_rate_percent": round(fallback_rate, 1),
+            "cost_vs_budget_percent": round(cost_vs_budget, 1),
+            "avg_duration_minutes": avg_duration_minutes,
+            "messages_total_month": messages_total_month,
+            "conversations_trend_v2": conversations_trend_v2,
+            "hot_leads": hot_leads,
+            "leads_sparkline_7d": leads_sparkline_7d,
+            "funnel": funnel,
+        }
+    except Exception as e:
+        logger.error(f"get_dashboard_stats error: {e}")
+        return {
+            "conversations_today": 0, "conversations_yesterday": 0,
+            "conversations_week": 0, "conversations_month": 0, "conversations_active": 0,
+            "leads_total": 0, "leads_new": 0, "leads_contacted": 0,
+            "leads_qualified": 0, "leads_converted": 0, "leads_lost": 0,
+            "leads_gold": 0, "leads_silver": 0, "leads_bronze": 0,
+            "cost_today": 0, "cost_week": 0, "cost_month": 0,
+            "top_routes": [], "conversations_trend": [], "leads_trend": [],
+            "leads_uncalled": 0, "leads_sla_breach": 0,
+            "cost_avg_30d": 0, "daily_budget": 50.0,
+            "latency_median_ms": 0, "fallback_rate_percent": 0,
+            "cost_vs_budget_percent": 0, "avg_duration_minutes": 0,
+            "messages_total_month": 0,
+            "conversations_trend_v2": [], "hot_leads": [],
+            "leads_sparkline_7d": [0, 0, 0, 0, 0, 0, 0], "funnel": [],
+        }

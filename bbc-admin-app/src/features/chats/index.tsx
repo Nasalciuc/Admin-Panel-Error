@@ -4,6 +4,7 @@ import type { Conversation, ConversationsResponse } from '@/lib/types'
 import { MOCK_CONVERSATIONS } from '@/lib/mock-data'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import ConversationDetail from './detail'
@@ -68,6 +69,7 @@ export function Chats() {
     <>
       <Header>
         <div className='ms-auto flex items-center space-x-4'>
+          <ConnectionBanner />
           <ThemeSwitch />
           <ProfileDropdown />
         </div>

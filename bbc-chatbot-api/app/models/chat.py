@@ -24,3 +24,11 @@ class ChatResponse(BaseModel):
     model_used: str
     cost: float = 0.0
     route_card: Optional[dict] = None
+
+
+class RouteCard(BaseModel):
+    origin: str
+    destination: str
+    airlines: str = ""
+    duration: str = ""
+    price_range: str = ""

@@ -8,6 +8,7 @@ import { MOCK_KB_CATEGORIES, MOCK_KB_ENTRIES } from '@/lib/mock-data'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { ThemeSwitch } from '@/components/theme-switch'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -254,6 +255,7 @@ export function KnowledgeBase() {
     <>
       <Header>
         <div className='ms-auto flex items-center space-x-4'>
+          <ConnectionBanner />
           <ThemeSwitch />
           <ProfileDropdown />
         </div>

@@ -7,10 +7,15 @@ class Settings(BaseSettings):
     # API
     app_name: str = "BBC Chatbot API"
     debug: bool = False
-    cors_origins: list[str] = ["https://buybusinessclass.com"]
+    cors_origins: list[str] = [
+        "https://buybusinessclass.com",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://bbc-admin.vercel.app",
+    ]
 
     # Claude
-    anthropic_api_key: str  # REQUIRED
+    anthropic_api_key: str = ""  # Optional for dev — required only for AI pipeline
     claude_haiku_model: str = "claude-3-5-haiku-20241022"
     claude_sonnet_model: str = "claude-sonnet-4-20250514"
     claude_timeout: int = 8
