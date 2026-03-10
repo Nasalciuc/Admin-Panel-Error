@@ -1,4 +1,5 @@
 """Lead service — creation and updates. Score calculated EXCLUSIVELY in Python."""
+import asyncio
 import logging
 from typing import Optional
 
@@ -29,9 +30,10 @@ def _calculate_score(lead: dict, conv: Optional[dict] = None) -> int:
 
 async def get_or_create_lead(conversation_id: str) -> Optional[dict]:
     try:
-        from app.db.supabase import get_client
-        res = get_client().table("leads").select("*").eq("conversation_id", conversation_id).limit(1).execute()
-        return res.data[0] if res.data else None
+        from app.db.supabase import get_client, _run_sync
+        db_client = get_client()
+        res = await _run_sync(lambda: db_client.table("leads").select("*").eq("conversation_id", conversation_id).limit(1).execute())
+        return res.data[0] if res.data else None  # type: ignore[index]
     except Exception as e:
         logger.error(f"get_or_create_lead error: {e}")
         return None
@@ -43,20 +45,20 @@ async def update_lead_from_entities(conversation_id: str, entities: dict) -> Non
     Creates lead if it doesn't exist and we have minimum useful data.
     """
     try:
-        from app.db.supabase import get_client
+        from app.db.supabase import get_client, _run_sync
         db_client = get_client()
 
-        res = db_client.table("leads").select("id,score").eq("conversation_id", conversation_id).limit(1).execute()
+        res = await _run_sync(lambda: db_client.table("leads").select("id,score").eq("conversation_id", conversation_id).limit(1).execute())
         if not res.data:
             has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination"])
             if not has_useful:
                 return
-            lead_res = db_client.table("leads").insert({"conversation_id": conversation_id}).execute()
+            lead_res = await _run_sync(lambda: db_client.table("leads").insert({"conversation_id": conversation_id}).execute())
             if not lead_res.data:
                 return
-            lead_id = lead_res.data[0]["id"]
+            lead_id = lead_res.data[0]["id"]  # type: ignore[index]
         else:
-            lead_id = res.data[0]["id"]
+            lead_id = res.data[0]["id"]  # type: ignore[index]
 
         # Update conversation with contact info
         conv_payload: dict = {}
@@ -64,13 +66,15 @@ async def update_lead_from_entities(conversation_id: str, entities: dict) -> Non
         if entities.get("email"):  conv_payload["visitor_email"] = entities["email"]
         if entities.get("phone"):  conv_payload["visitor_phone"] = entities["phone"]
         if conv_payload:
-            db_client.table("conversations").update(conv_payload).eq("id", conversation_id).execute()
+            await _run_sync(lambda: db_client.table("conversations").update(conv_payload).eq("id", conversation_id).execute())
 
         # Recalculate score
-        lead_data = db_client.table("leads").select("*").eq("id", lead_id).single().execute().data or {}
-        conv_data = db_client.table("conversations").select("visitor_name,visitor_email,visitor_phone").eq("id", conversation_id).single().execute().data or {}
-        new_score = _calculate_score({**lead_data, **conv_data})
+        lead_res = await _run_sync(lambda: db_client.table("leads").select("*").eq("id", lead_id).single().execute())
+        conv_res = await _run_sync(lambda: db_client.table("conversations").select("visitor_name,visitor_email,visitor_phone").eq("id", conversation_id).single().execute())
+        lead_data = lead_res.data or {}  # type: ignore[assignment]
+        conv_data = conv_res.data or {}  # type: ignore[assignment]
+        new_score = _calculate_score(lead_data, conv_data)
         new_tier  = "gold" if new_score >= 80 else "silver" if new_score >= 50 else "bronze"
-        db_client.table("leads").update({"score": new_score, "tier": new_tier}).eq("id", lead_id).execute()
+        await _run_sync(lambda: db_client.table("leads").update({"score": new_score, "tier": new_tier}).eq("id", lead_id).execute())
     except Exception as e:
         logger.error(f"update_lead_from_entities error: {e}")

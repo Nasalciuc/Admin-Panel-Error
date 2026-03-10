@@ -4,6 +4,7 @@ Client: supabase-py (HTTP). NO asyncpg. NO SQLAlchemy.
 import asyncio
 import logging
 import statistics
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
@@ -96,7 +97,7 @@ async def add_message(
 async def count_messages(conversation_id: str) -> int:
     try:
         db = get_client()
-        res = await _run_sync(lambda: db.table("messages").select("id", count="exact").eq("conversation_id", conversation_id).execute())
+        res = await _run_sync(lambda: db.table("messages").select("id", count="exact").eq("conversation_id", conversation_id).execute())  # type: ignore[arg-type]
         return res.count or 0
     except Exception:
         return 0
@@ -133,11 +134,10 @@ async def keyword_search_kb(keywords: list[str], tunnel: str = "sales", limit: i
                 .eq("is_active", True)
                 .eq("tunnel", tunnel)
                 .text_search("search_vector", query)
-                .limit(limit)
                 .execute()
             )
         res = await _run_sync(_query)
-        return res.data or []
+        return (res.data or [])[:limit]
     except Exception as e:
         logger.warning(f"keyword_search_kb error: {e}")
         return []
@@ -158,7 +158,7 @@ async def get_conversations(
     try:
         db = get_client()
         def _query():
-            q = db.table("conversations").select("*", count="exact").order("created_at", desc=True)
+            q = db.table("conversations").select("*", count="exact").order("created_at", desc=True)  # type: ignore[arg-type]
             if tunnel:  q = q.eq("tunnel", tunnel)
             if status:  q = q.eq("status", status)
             if search:
@@ -227,7 +227,7 @@ async def get_leads(
         def _query():
             q = db.table("leads").select(
                 "*, conversations!inner(visitor_name, visitor_email, visitor_phone, tunnel)",
-                count="exact"
+                count="exact"  # type: ignore[arg-type]
             ).order("score", desc=True)
             if status:  q = q.eq("status", status)
             if tier:    q = q.eq("tier", tier)
@@ -386,11 +386,9 @@ async def get_dashboard_stats() -> dict:
 
         # ── Fetch all conversations ───────────────────────────
         convos = await _run_sync(lambda: db.table("conversations").select(
-            "id, tunnel, status, created_at, closed_at", count="exact"
+            "id, tunnel, status, created_at, closed_at", count="exact"  # type: ignore[arg-type]
         ).execute())
         all_convos = convos.data or []
-
-        from collections import Counter
 
         now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -408,20 +406,19 @@ async def get_dashboard_stats() -> dict:
 
         conversations_today = sum(
             1 for c in all_convos
-            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= today_start
+            if (dt := parse_dt(c.get("created_at"))) and dt >= today_start
         )
         conversations_yesterday = sum(
             1 for c in all_convos
-            if parse_dt(c.get("created_at"))
-            and yesterday_start <= parse_dt(c["created_at"]) < today_start
+            if (dt := parse_dt(c.get("created_at"))) and yesterday_start <= dt < today_start
         )
         conversations_week = sum(
             1 for c in all_convos
-            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= week_ago
+            if (dt := parse_dt(c.get("created_at"))) and dt >= week_ago
         )
         conversations_month = sum(
             1 for c in all_convos
-            if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]) >= month_ago
+            if (dt := parse_dt(c.get("created_at"))) and dt >= month_ago
         )
         conversations_active = sum(
             1 for c in all_convos if c.get("status") == "active"
@@ -449,8 +446,7 @@ async def get_dashboard_stats() -> dict:
         sla_cutoff = now - timedelta(hours=2)
         leads_sla_breach = sum(
             1 for l in all_leads
-            if l.get("status") == "new" and parse_dt(l.get("created_at"))
-            and parse_dt(l["created_at"]) < sla_cutoff
+            if l.get("status") == "new" and (dt := parse_dt(l.get("created_at"))) and dt < sla_cutoff
         )
 
         # ── Pipeline runs (cost, latency, fallback) ──────────
@@ -461,15 +457,15 @@ async def get_dashboard_stats() -> dict:
 
         cost_today = sum(
             float(r.get("cost", 0)) for r in all_runs
-            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= today_start
+            if (dt := parse_dt(r.get("created_at"))) and dt >= today_start
         )
         cost_week = sum(
             float(r.get("cost", 0)) for r in all_runs
-            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= week_ago
+            if (dt := parse_dt(r.get("created_at"))) and dt >= week_ago
         )
         cost_month = sum(
             float(r.get("cost", 0)) for r in all_runs
-            if parse_dt(r.get("created_at")) and parse_dt(r["created_at"]) >= month_ago
+            if (dt := parse_dt(r.get("created_at"))) and dt >= month_ago
         )
 
         latencies = [r["latency_ms"] for r in all_runs if r.get("latency_ms")]
@@ -493,7 +489,7 @@ async def get_dashboard_stats() -> dict:
         avg_duration_minutes = round(statistics.mean(durations), 1) if durations else 0.0
 
         # ── Messages total month ─────────────────────────────
-        msgs_res = await _run_sync(lambda: db.table("messages").select("id", count="exact").execute())
+        msgs_res = await _run_sync(lambda: db.table("messages").select("id", count="exact").execute())  # type: ignore[arg-type]
         messages_total_month = msgs_res.count or 0
 
         # ── Top routes ────────────────────────────────────────
@@ -513,7 +509,7 @@ async def get_dashboard_stats() -> dict:
             day_str = day.strftime("%Y-%m-%d")
             day_convos = [
                 c for c in all_convos
-                if parse_dt(c.get("created_at")) and parse_dt(c["created_at"]).date() == day.date()
+                if (dt := parse_dt(c.get("created_at"))) and dt.date() == day.date()
             ]
             conversations_trend.append({"date": day_str, "count": len(day_convos)})
             sales = sum(1 for c in day_convos if c.get("tunnel") == "sales")
@@ -527,7 +523,7 @@ async def get_dashboard_stats() -> dict:
             day_str = day.strftime("%Y-%m-%d")
             day_leads = [
                 l for l in all_leads
-                if parse_dt(l.get("created_at")) and parse_dt(l["created_at"]).date() == day.date()
+                if (dt := parse_dt(l.get("created_at"))) and dt.date() == day.date()
             ]
             leads_trend.append({"date": day_str, "count": len(day_leads)})
 
@@ -537,7 +533,7 @@ async def get_dashboard_stats() -> dict:
             day = today_start - timedelta(days=i)
             count = sum(
                 1 for l in all_leads
-                if parse_dt(l.get("created_at")) and parse_dt(l["created_at"]).date() == day.date()
+                if (dt := parse_dt(l.get("created_at"))) and dt.date() == day.date()
             )
             leads_sparkline_7d.append(count)
 
@@ -550,9 +546,9 @@ async def get_dashboard_stats() -> dict:
         for l in new_leads_sorted:
             created = parse_dt(l.get("created_at"))
             minutes_since = int((now - created).total_seconds() / 60) if created else 0
+            cid = l.get("conversation_id", "")
             conv_res = await _run_sync(
-                lambda cid=l.get("conversation_id", ""):
-                db.table("conversations").select("visitor_name").eq("id", cid).limit(1).execute()
+                lambda: db.table("conversations").select("visitor_name").eq("id", cid).limit(1).execute()
             )
             visitor_name = conv_res.data[0].get("visitor_name") if conv_res.data else None
             hot_leads.append({
