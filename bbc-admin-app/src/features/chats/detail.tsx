@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Phone, Mail, User, Bot, Headphones, Info, Copy, Check } from 'lucide-react'
 import type { Conversation, Message } from '@/lib/types'
 import { MOCK_MESSAGES, MOCK_CONVERSATIONS } from '@/lib/mock-data'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { getConversation } from '@/lib/api'
 
 interface Props { conversationId: string; onClose: () => void; usingMock?: boolean }
 
@@ -27,9 +26,7 @@ export default function ConversationDetail({ conversationId, onClose, usingMock 
     const load = async () => {
       try {
         if (usingMock) throw new Error('mock mode')
-        const res = await fetch(`${API}/api/conversations/${conversationId}`, { signal: AbortSignal.timeout(5000) })
-        if (!res.ok) throw new Error()
-        const data: Conversation = await res.json()
+        const data = await getConversation(conversationId)
         if (!cancelled) setConv(data)
       } catch {
         const mockConv = MOCK_CONVERSATIONS.find(c => c.id === conversationId)

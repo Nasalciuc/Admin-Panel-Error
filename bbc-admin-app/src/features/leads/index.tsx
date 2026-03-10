@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Filter, Phone, Mail, Plane, ChevronDown, RefreshCw } from 'lucide-react'
-import type { Lead, LeadsResponse } from '@/lib/types'
+import type { Lead } from '@/lib/types'
 import { MOCK_LEADS } from '@/lib/mock-data'
+import { getLeads, updateLeadStatus } from '@/lib/api'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ConnectionBanner } from '@/components/connection-banner'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 const TIER_STYLES: Record<string, string> = {
   gold:   'bg-yellow-100 text-yellow-800 border border-yellow-300',
@@ -58,15 +57,11 @@ export function Leads() {
   const fetchLeads = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (search)       params.set('search', search)
-      if (statusFilter) params.set('status', statusFilter)
-      if (tierFilter)   params.set('tier', tierFilter)
-      params.set('limit', String(LIMIT))
-      params.set('offset', String(offset))
-      const res = await fetch(`${API}/api/leads?${params}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) throw new Error()
-      const json: LeadsResponse = await res.json()
+      const params: Record<string, string> = { limit: String(LIMIT), offset: String(offset) }
+      if (search)       params.search = search
+      if (statusFilter) params.status = statusFilter
+      if (tierFilter)   params.tier = tierFilter
+      const json = await getLeads(params)
       setLeads(json.data); setTotal(json.total); setUsingMock(false)
     } catch {
       // Fallback to mock data when API is unreachable
@@ -83,14 +78,12 @@ export function Leads() {
 
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
-  const updateStatus = async (leadId: string, newStatus: string) => {
+  const handleStatusUpdate = async (leadId: string, newStatus: string) => {
     setUpdatingId(leadId)
     try {
-      await fetch(`${API}/api/leads/${leadId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
+      await updateLeadStatus(leadId, newStatus)
+    } catch {
+      // Silently fail — optimistic update still applies for mock mode
     } finally {
       // Optimistic update — works even in mock mode
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus as Lead['status'] } : l))
@@ -197,7 +190,7 @@ export function Leads() {
                       <td className="px-4 py-3 text-gray-600 text-xs">{lead.departure_date ?? <span className="text-gray-300">—</span>}</td>
                       <td className="px-4 py-3">
                         <select value={lead.status} disabled={updatingId === lead.id}
-                          onChange={e => updateStatus(lead.id, e.target.value)}
+                          onChange={e => handleStatusUpdate(lead.id, e.target.value)}
                           className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#C9A54E] disabled:opacity-50">
                           <option value="new">New</option><option value="contacted">Contacted</option>
                           <option value="qualified">Qualified</option><option value="converted">Converted</option>

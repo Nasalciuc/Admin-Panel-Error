@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react'
-import type { Conversation, ConversationsResponse } from '@/lib/types'
+import type { Conversation } from '@/lib/types'
 import { MOCK_CONVERSATIONS } from '@/lib/mock-data'
+import { getConversations } from '@/lib/api'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ConnectionBanner } from '@/components/connection-banner'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import ConversationDetail from './detail'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 const TUNNEL_STYLES: Record<string, string> = {
   sales:   'bg-blue-50 text-blue-700 border border-blue-200',
@@ -42,14 +41,11 @@ export function Chats() {
   const fetchConversations = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (search)       params.set('search', search)
-      if (tunnelFilter) params.set('tunnel', tunnelFilter)
-      if (statusFilter) params.set('status', statusFilter)
-      params.set('limit', '50')
-      const res = await fetch(`${API}/api/conversations?${params}`, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) throw new Error()
-      const json: ConversationsResponse = await res.json()
+      const params: Record<string, string> = { limit: '50' }
+      if (search)       params.search = search
+      if (tunnelFilter) params.tunnel = tunnelFilter
+      if (statusFilter) params.status = statusFilter
+      const json = await getConversations(params)
       setConversations(json.data); setTotal(json.total); setUsingMock(false)
     } catch {
       let mock = MOCK_CONVERSATIONS

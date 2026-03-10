@@ -5,13 +5,18 @@ import {
 } from 'lucide-react'
 import type { KBCategory, KBEntry, KBEntryCreate } from '@/lib/types'
 import { MOCK_KB_CATEGORIES, MOCK_KB_ENTRIES } from '@/lib/mock-data'
+import {
+  getKBCategories,
+  getKBEntries,
+  createKBEntry,
+  updateKBEntry,
+  deleteKBEntry,
+} from '@/lib/api'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ConnectionBanner } from '@/components/connection-banner'
 import { ThemeSwitch } from '@/components/theme-switch'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 // Map icon name strings to Lucide components
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -175,13 +180,12 @@ export function KnowledgeBase() {
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [catsRes, entriesRes] = await Promise.all([
-        fetch(`${API}/api/kb/categories`,        { signal: AbortSignal.timeout(5000) }),
-        fetch(`${API}/api/kb/entries?limit=200`,  { signal: AbortSignal.timeout(5000) }),
+      const [catsJson, entriesJson] = await Promise.all([
+        getKBCategories(),
+        getKBEntries({ limit: '200' }),
       ])
-      if (!catsRes.ok || !entriesRes.ok) throw new Error()
-      setCategories((await catsRes.json()).data)
-      setEntries((await entriesRes.json()).data)
+      setCategories(catsJson.data)
+      setEntries(entriesJson.data)
       setUsingMock(false)
     } catch {
       setCategories(MOCK_KB_CATEGORIES)
@@ -197,18 +201,13 @@ export function KnowledgeBase() {
       if (id) {
         // Edit existing
         if (!usingMock) {
-          await fetch(`${API}/api/kb/entries/${id}`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-          })
+          await updateKBEntry(id, data as Partial<KBEntry>)
         }
         setEntries(prev => prev.map(e => e.id === id ? { ...e, ...(data as Partial<KBEntry>) } : e))
       } else {
         // Create new
         if (!usingMock) {
-          const res = await fetch(`${API}/api/kb/entries`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
-          })
-          const created = await res.json()
+          const created = await createKBEntry(data as KBEntryCreate)
           setEntries(prev => [created, ...prev])
         } else {
           const payload = data as KBEntryCreate
@@ -226,10 +225,7 @@ export function KnowledgeBase() {
   const toggleActive = async (entry: KBEntry) => {
     const newVal = !entry.is_active
     if (!usingMock) {
-      await fetch(`${API}/api/kb/entries/${entry.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: newVal }),
-      })
+      await updateKBEntry(entry.id, { is_active: newVal })
     }
     setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, is_active: newVal } : e))
   }
@@ -238,7 +234,7 @@ export function KnowledgeBase() {
     if (!confirm('Delete this article? This cannot be undone.')) return
     setDeletingId(entryId)
     try {
-      if (!usingMock) await fetch(`${API}/api/kb/entries/${entryId}`, { method: 'DELETE' })
+      if (!usingMock) await deleteKBEntry(entryId)
       setEntries(prev => prev.filter(e => e.id !== entryId))
     } finally { setDeletingId(null) }
   }
