@@ -35,6 +35,30 @@ TEMPLATES: dict[str, list[str]] = {
         "To get you the best available fare, what's the best number "
         "for our specialist to reach you?",
     ],
+    "ask_dates:sales": [
+        "When are you looking to travel? Even a few days of flexibility "
+        "can help us find significantly better fares.",
+        "What dates work best for you? Flexible dates often unlock the best deals.",
+    ],
+    "ask_passengers:sales": [
+        "How many passengers will be flying?",
+        "Will anyone else be joining you on this trip?",
+    ],
+    "confirm_route:sales": [
+        "Great — {origin} to {destination} in business class! "
+        "When are you looking to travel?",
+        "{origin} to {destination} — excellent route! "
+        "What dates work for you?",
+    ],
+    "specialist_handoff:sales": [
+        "Wonderful{name_suffix}! I have everything I need. One of our travel "
+        "specialists will reach out within 2 hours with the best options. "
+        "We'll contact you at {contact}.",
+        "All set{name_suffix}! A specialist will contact you shortly with "
+        "personalized options and our best fares.",
+        "Thank you{name_suffix}! Our team will prepare a tailored quote "
+        "and reach out to you soon at {contact}.",
+    ],
     "lead_captured:sales": [
         "Perfect, {name}! One of our travel specialists will reach out "
         "within 2 hours with the best {route} options. "
@@ -86,6 +110,8 @@ TEMPLATES: dict[str, list[str]] = {
     ],
     "ai_fallback": [
         "Let me connect you with a specialist who can help with that right away.",
+        "I want to make sure you get the best answer — let me connect you with our team.",
+        "That's a great question for our travel specialists. Let me get someone for you.",
     ],
     "rate_limited": [
         "You've been chatting with us a lot! For the fastest service, "

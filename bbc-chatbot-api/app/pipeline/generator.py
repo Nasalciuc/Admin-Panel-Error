@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.pipeline.intent import Intent
 from app.models.chat import VisitorInfo, RouteCard
-# Lead model removed — generator receives lead as dict from Supabase
+from app.models.lead import get_missing_fields
 from app.models.kb import KBResult
 from app.ai.templates import get_template
 from app.ai.prompts import build_conversational_prompt
@@ -86,6 +86,9 @@ def generate_response(
     2. CLOSING  → template ($0)
     3. TALK_TO_AGENT → template ($0)
     4. NEW_BOOKING / ROUTE_INFO + route KB data → route card + template ($0)
+    4.5a. BAGGAGE / PRICE / BOOKING_CHANGE → intent-specific template ($0)
+    4.5b. Smart routing: lead has data → ask missing fields in conversation
+          order: route → dates → phone → email → name → handoff ($0)
     5. Otherwise:
        a. 5+ user messages OR BOOKING_CHANGE → Sonnet ($0.015)
        b. Else → Haiku ($0.003)
@@ -130,6 +133,102 @@ def generate_response(
                         model_used="template",
                         route_card=route_card,
                     )
+
+    # ── 4.5a Intent-specific templates ────────────────────────
+    # These intents have good template responses — no need for AI
+    if intent == Intent.BAGGAGE_INFO:
+        text = get_template("baggage_info", tunnel, visitor)
+        if text:
+            return GeneratedResponse(text=text, model_used="template")
+
+    if intent == Intent.PRICE_INQUIRY:
+        text = get_template("price_inquiry", tunnel, visitor)
+        if text:
+            return GeneratedResponse(text=text, model_used="template")
+
+    if intent == Intent.BOOKING_CHANGE and tunnel == "support":
+        text = get_template("booking_change", tunnel, visitor)
+        if text:
+            return GeneratedResponse(text=text, model_used="template")
+
+    # ── 4.5b Smart routing — lead-aware template selection ────
+    # SALES tunnel only. Guides conversation to collect missing lead data.
+    # Uses CONVERSATION priority order (not scoring priority):
+    #   route → dates → phone → email → name
+    # Only activates when lead already has SOME data (not on first anonymous msg).
+    if tunnel == "sales" and lead and isinstance(lead, dict):
+        has_some_data = bool(
+            lead.get("origin_code") or lead.get("destination_code")
+            or lead.get("visitor_name") or lead.get("visitor_email")
+            or lead.get("visitor_phone")
+        )
+
+        if has_some_data:
+            missing = get_missing_fields(lead)
+
+            if not missing:
+                # All fields captured → hand off to specialist
+                text = get_template(
+                    "specialist_handoff", tunnel, visitor,
+                    route=lead.get("route_display", "your route"),
+                )
+                if text:
+                    logger.info("Smart routing: specialist_handoff (lead complete)")
+                    return GeneratedResponse(text=text, model_used="template")
+
+            # Check what's missing in CONVERSATION order (not scoring order)
+            missing_str = " ".join(missing)
+
+            # Loop prevention: if last AI message already asked for this field, skip
+            last_ai = ""
+            if history:
+                ai_msgs = [m for m in history if m.get("role") == "ai"]
+                if ai_msgs:
+                    last_ai = ai_msgs[-1].get("content", "").lower()
+
+            # Route incomplete → let step 4 (route_card) or AI handle it
+            if "route" in missing_str:
+                pass  # Don't ask for route via template — too complex
+
+            # Dates missing → ask dates (if we didn't just ask)
+            elif "travel dates" in missing_str:
+                if not any(w in last_ai for w in ["when", "dates", "travel", "flexibility"]):
+                    # If we have origin+destination, use confirm_route template
+                    if lead.get("origin_code") and lead.get("destination_code"):
+                        text = get_template(
+                            "confirm_route", tunnel, visitor,
+                            origin=lead.get("origin_code", ""),
+                            destination=lead.get("destination_code", ""),
+                        )
+                    else:
+                        text = get_template("ask_dates", tunnel, visitor)
+                    if text:
+                        logger.info("Smart routing: ask_dates")
+                        return GeneratedResponse(text=text, model_used="template")
+
+            # Phone missing → ask phone (if we didn't just ask)
+            elif "phone" in missing_str:
+                if "phone" not in last_ai and "number" not in last_ai and "reach" not in last_ai:
+                    text = get_template("ask_phone", tunnel, visitor)
+                    if text:
+                        logger.info("Smart routing: ask_phone")
+                        return GeneratedResponse(text=text, model_used="template")
+
+            # Email missing → ask email (if we didn't just ask)
+            elif "email" in missing_str:
+                if "email" not in last_ai and "e-mail" not in last_ai:
+                    text = get_template("ask_email", tunnel, visitor)
+                    if text:
+                        logger.info("Smart routing: ask_email")
+                        return GeneratedResponse(text=text, model_used="template")
+
+            # Name missing → ask name (if we didn't just ask)
+            elif "name" in missing_str:
+                if "name" not in last_ai:
+                    text = get_template("ask_name", tunnel, visitor)
+                    if text:
+                        logger.info("Smart routing: ask_name")
+                        return GeneratedResponse(text=text, model_used="template")
 
     # 5. AI generation
     system_prompt = build_conversational_prompt(

@@ -60,7 +60,7 @@ async def check_rate_limit(request: Request) -> None:
             b.daily_reset = now + 86400
 
         # ── Refill token bucket ────────────────────────────────
-        elapsed = now - b.last_refill
+        elapsed = max(0.0, now - b.last_refill)
         refill = elapsed / settings.rate_sustained_seconds
         b.tokens = min(float(settings.rate_burst), b.tokens + refill)
         b.last_refill = now
