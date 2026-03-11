@@ -4,11 +4,12 @@ Thin controller: validate → sanitize → orchestrate → respond.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from config.settings import settings
 from app.models.chat import ChatRequest, ChatResponse
 from app.security.input_sanitizer import sanitize_message, is_suspicious
+from app.security.rate_limiter import check_rate_limit
 from app.pipeline.orchestrator import process_message
 from app.db import supabase as db
 
@@ -18,7 +19,7 @@ router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest) -> ChatResponse:
+async def chat(req: ChatRequest, _rate: None = Depends(check_rate_limit)) -> ChatResponse:
     """Handle a single chat message from the widget."""
 
     # 1. Sanitize

@@ -23,6 +23,14 @@ TEMPLATES: dict[str, list[str]] = {
         "with {airlines} offering service at about {duration}. "
         "Shall I have a specialist find the best fare for your dates?",
     ],
+    "ask_name:sales": [
+        "I'd love to help you find the best fare! What's your name?",
+        "Sure thing! May I have your name so I can look into that?",
+    ],
+    "ask_email:sales": [
+        "What's the best e-mail to send your quote to, {name}?",
+        "Could I get your e-mail address so we can send over the options?",
+    ],
     "ask_phone:sales": [
         "To get you the best available fare, what's the best number "
         "for our specialist to reach you?",
@@ -35,6 +43,7 @@ TEMPLATES: dict[str, list[str]] = {
     "closing:sales": [
         "Thank you for choosing Buy Business Class{name_suffix}! "
         "We'll be in touch soon.",
+        "Thanks{name_suffix}! Our team is already working on your request.",
     ],
 
     # ── SUPPORT ────────────────────────────────────────────────
@@ -49,6 +58,21 @@ TEMPLATES: dict[str, list[str]] = {
     "closing:support": [
         "Glad I could help{name_suffix}! Don't hesitate to reach out "
         "if you need anything else.",
+    ],
+
+    # ── INTENT-SPECIFIC ───────────────────────────────────────
+    "baggage_info": [
+        "Business class typically includes 2 checked bags (32 kg each) "
+        "plus a carry-on. Exact allowances vary by airline — "
+        "would you like me to check a specific carrier?",
+    ],
+    "price_inquiry": [
+        "I'd be happy to get you a quote! Could you tell me your "
+        "departure city, destination, and approximate travel dates?",
+    ],
+    "booking_change": [
+        "I can help with changes to an existing booking. "
+        "Could you share your booking reference or confirmation number?",
     ],
 
     # ── UNIVERSAL ──────────────────────────────────────────────
@@ -66,6 +90,10 @@ TEMPLATES: dict[str, list[str]] = {
     "rate_limited": [
         "You've been chatting with us a lot! For the fastest service, "
         "call us at +1-XXX-XXX-XXXX.",
+    ],
+    "error": [
+        "I'm sorry, something went wrong on our end. "
+        "Please try again in a moment or call us directly.",
     ],
 }
 
