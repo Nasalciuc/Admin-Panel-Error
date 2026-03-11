@@ -65,6 +65,10 @@ async def _pipeline(
     metadata: Optional[dict],
 ) -> ChatResponse:
     """Internal pipeline implementation with 8 steps."""
+    import time
+    from app.pipeline.entity_extractor import extract_entities, extract_kb_keywords
+
+    pipeline_start = time.perf_counter()
 
     # ── STEP 1: GET/CREATE CONVERSATION ───────────────────────
     conv = await conversation_service.get_or_create_conversation(
@@ -72,49 +76,52 @@ async def _pipeline(
         tunnel=tunnel,
         visitor=visitor,
     )
-    if not conv:
+    if not conv or "id" not in conv:
         raise RuntimeError("Failed to create conversation")
 
-    cid = conv.id
+    cid = conv["id"]
     logger.info(f"[{cid}] Pipeline start | tunnel={tunnel}")
 
     # Save user message immediately (never lose data)
-    await conversation_service.add_message(
+    user_msg = await conversation_service.add_message(
         conversation_id=cid, role="user", content=message
     )
+    user_msg_id = user_msg["id"] if user_msg and isinstance(user_msg, dict) else None
 
     # ── STEP 2: AGENT CHECK (V3 placeholder) ─────────────────
     # V1: always AI mode. V3 will check agent availability here.
-    # If agents online → route to human, return agent_assigned response.
 
     # ── STEP 3: INTENT DETECTION ─────────────────────────────
     intent = detect_intent(message, metadata)
     logger.info(f"[{cid}] Intent: {intent.value}")
 
-    # ── STEP 4: ENTITY EXTRACTION (V2 placeholder) ───────────
-    # V2 will extract: name, email, phone, route, dates from message.
-    entities: dict = {"_raw_message": message}
+    # ── STEP 4: ENTITY EXTRACTION ────────────────────────────
+    extracted = extract_entities(message)
+    entities: dict = {
+        "_raw_message": message,
+        "name": extracted.name or (visitor.name if visitor.name else None),
+        "email": extracted.email or (visitor.email if visitor.email else None),
+        "phone": extracted.phone or (visitor.phone if visitor.phone else None),
+        "origin": extracted.origin_code,
+        "destination": extracted.destination_code,
+        "passengers": extracted.passengers,
+        "cabin_class": extracted.cabin_class,
+    }
 
-    # Update visitor info on lead if available
-    if visitor.name or visitor.email or visitor.phone:
-        visitor_entities: dict = {}
-        if visitor.name:
-            visitor_entities["name"] = visitor.name
-        if visitor.email:
-            visitor_entities["email"] = visitor.email
-        if visitor.phone:
-            visitor_entities["phone"] = visitor.phone
-        await lead_service.update_lead_from_entities(cid, visitor_entities)
+    # Update lead with all extracted entities
+    has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination"])
+    if has_useful:
+        await lead_service.update_lead_from_entities(cid, entities)
+        logger.info(f"[{cid}] Entities: {', '.join(k for k, v in entities.items() if v and k != '_raw_message')}")
 
     # ── STEP 5: KB SEARCH ────────────────────────────────────
     kb_results: list[KBResult] = []
     skip_kb = intent in (Intent.GREETING, Intent.CLOSING, Intent.TALK_TO_AGENT)
 
     if not skip_kb:
-        # V1: keyword search. V2 adds Qdrant vector search.
-        keywords = [w for w in message.lower().split() if len(w) > 3][:5]
+        keywords = extract_kb_keywords(message)
         if keywords:
-            raw_results = await db.keyword_search_kb(keywords, limit=3)
+            raw_results = await db.keyword_search_kb(keywords, tunnel=tunnel, limit=3)
             kb_results = [
                 KBResult(
                     entry_id=r["id"],
@@ -128,7 +135,6 @@ async def _pipeline(
         logger.info(f"[{cid}] KB results: {len(kb_results)}")
 
     # ── STEP 6: GENERATE RESPONSE ────────────────────────────
-    # Get conversation history for context
     history = await db.get_recent_messages(cid, limit=5)
     lead = await lead_service.get_or_create_lead(cid)
 
@@ -147,19 +153,36 @@ async def _pipeline(
     validated_text = validate_response(gen.text)
 
     # ── STEP 8: DELIVER ──────────────────────────────────────
-    # Save AI response to DB
-    await conversation_service.add_message(
+    ai_msg = await conversation_service.add_message(
         conversation_id=cid,
         role="ai",
         content=validated_text,
         model_used=gen.model_used,
         cost=gen.cost,
     )
+    ai_msg_id = ai_msg["id"] if ai_msg and isinstance(ai_msg, dict) else None
 
-    # Determine response type
+    # Record pipeline run (non-blocking, non-fatal)
+    latency_ms = int((time.perf_counter() - pipeline_start) * 1000)
+    if ai_msg_id:
+        await db.create_pipeline_run({
+            "message_id": ai_msg_id,
+            "conversation_id": cid,
+            "step_name": "orchestrator_v1",
+            "intent_detected": intent.value,
+            "kb_entries_used": len(kb_results),
+            "model_used": gen.model_used,
+            "cost": gen.cost,
+            "latency_ms": latency_ms,
+            "status": "success",
+            "tunnel": tunnel,
+            "had_fallback": gen.model_used == "template" and intent not in (
+                Intent.GREETING, Intent.CLOSING, Intent.TALK_TO_AGENT
+            ),
+        })
+
     resp_type = "template" if gen.model_used == "template" else "ai"
-
-    logger.info(f"[{cid}] Pipeline complete | type={resp_type}")
+    logger.info(f"[{cid}] Pipeline complete | type={resp_type} | {latency_ms}ms")
 
     return ChatResponse(
         conversation_id=cid,

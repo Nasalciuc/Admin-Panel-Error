@@ -374,6 +374,21 @@ async def delete_kb_entry(entry_id: str) -> bool:
 
 
 # ════════════════════════════════════════════════════════════════
+# PIPELINE RUNS — recording
+# ════════════════════════════════════════════════════════════════
+
+async def create_pipeline_run(payload: dict) -> Optional[dict]:
+    """Insert a pipeline run record. Non-fatal — never blocks the pipeline."""
+    try:
+        db_client = get_client()
+        res = await _run_sync(lambda: db_client.table("pipeline_runs").insert(payload).execute())
+        return res.data[0] if res.data else None
+    except Exception as e:
+        logger.warning(f"create_pipeline_run error (non-fatal): {e}")
+        return None
+
+
+# ════════════════════════════════════════════════════════════════
 # ADMIN — DASHBOARD STATS
 # ════════════════════════════════════════════════════════════════
 

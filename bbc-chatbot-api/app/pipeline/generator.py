@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.pipeline.intent import Intent
 from app.models.chat import VisitorInfo, RouteCard
-from app.models.lead import Lead
+# Lead model removed — generator receives lead as dict from Supabase
 from app.models.kb import KBResult
 from app.ai.templates import get_template
 from app.ai.prompts import build_conversational_prompt
@@ -76,7 +76,7 @@ def generate_response(
     entities: dict,
     kb_results: list[KBResult],
     visitor: VisitorInfo,
-    lead: Optional[Lead],
+    lead: Optional[dict],
     history: list[dict],
     tunnel: str,
 ) -> GeneratedResponse:
@@ -146,15 +146,15 @@ def generate_response(
     if use_sonnet:
         # 5a. Sonnet for complex conversations
         logger.info("Using Sonnet (complex conversation)")
-        ai_text = call_sonnet(system_prompt, entities.get("_raw_message", ""))
+        ai_text, ai_cost = call_sonnet(system_prompt, entities.get("_raw_message", ""))
         if ai_text:
-            return GeneratedResponse(text=ai_text, model_used="sonnet", cost=0.015)
+            return GeneratedResponse(text=ai_text, model_used="sonnet", cost=ai_cost)
     else:
         # 5b. Haiku for standard responses
         logger.info("Using Haiku (standard response)")
-        ai_text = call_haiku(system_prompt, entities.get("_raw_message", ""))
+        ai_text, ai_cost = call_haiku(system_prompt, entities.get("_raw_message", ""))
         if ai_text:
-            return GeneratedResponse(text=ai_text, model_used="haiku", cost=0.003)
+            return GeneratedResponse(text=ai_text, model_used="haiku", cost=ai_cost)
 
     # 5c. Fallback
     logger.warning("AI generation failed — using fallback template")

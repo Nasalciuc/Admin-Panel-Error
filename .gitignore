@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Build artifacts
+.vite/
+dist/
+build/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE / Tools
+.claude/
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Lock files (keep pnpm-lock, ignore others)
+package-lock.json
+yarn.lock

@@ -12,6 +12,8 @@ from app.api.conversations import router as conversations_router
 from app.api.leads import router as leads_router
 from app.api.kb import router as kb_router
 from app.api.dashboard import router as dashboard_router
+from app.security.auth import verify_credentials
+from app.security.request_logger import RequestLoggerMiddleware
 
 # ── Logging ───────────────────────────────────────────────────
 logging.basicConfig(
@@ -47,13 +49,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Request Logger ────────────────────────────────────────────
+app.add_middleware(RequestLoggerMiddleware)
+
 # ── Routers ───────────────────────────────────────────────────
-app.include_router(chat_router, prefix="/api", tags=["chat"])
+# Health: PUBLIC (no auth — Railway healthcheck needs it)
 app.include_router(health_router, tags=["health"])
-app.include_router(conversations_router, prefix="/api", tags=["conversations"])
-app.include_router(leads_router,         prefix="/api", tags=["leads"])
-app.include_router(kb_router,            prefix="/api", tags=["kb"])
-app.include_router(dashboard_router,     prefix="/api", tags=["dashboard"])
+
+# API: ALL PROTECTED by HTTP Basic Auth
+from fastapi import Depends
+api_deps = [Depends(verify_credentials)]
+app.include_router(chat_router,          prefix="/api", tags=["chat"],          dependencies=api_deps)
+app.include_router(conversations_router, prefix="/api", tags=["conversations"], dependencies=api_deps)
+app.include_router(leads_router,         prefix="/api", tags=["leads"],         dependencies=api_deps)
+app.include_router(kb_router,            prefix="/api", tags=["kb"],            dependencies=api_deps)
+app.include_router(dashboard_router,     prefix="/api", tags=["dashboard"],     dependencies=api_deps)
 
 
 # ── Startup ───────────────────────────────────────────────────

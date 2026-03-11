@@ -3,7 +3,7 @@
 from typing import Optional
 
 from app.models.chat import VisitorInfo
-from app.models.lead import Lead, get_missing_fields, get_lead_tier
+from app.models.lead import get_missing_fields, get_lead_tier
 from app.models.kb import KBResult
 
 # ── Classifier prompt (used by claude.classify_intent) ────────
@@ -60,7 +60,7 @@ def _conversation_stage(message_count: int) -> str:
 def build_conversational_prompt(
     tunnel: str,
     visitor: VisitorInfo,
-    lead: Optional[Lead] = None,
+    lead: Optional[dict] = None,
     kb_results: Optional[list[KBResult]] = None,
     history: Optional[list[dict]] = None,
 ) -> str:
@@ -80,9 +80,10 @@ def build_conversational_prompt(
     visitor_lines: list[str] = ["[VISITOR CONTEXT]"]
     if visitor.name:
         visitor_lines.append(f"Name: {visitor.name}")
-    if lead:
-        tier = get_lead_tier(lead.score)
-        visitor_lines.append(f"Lead score: {lead.score}/100 ({tier})")
+    if lead and isinstance(lead, dict):
+        score = lead.get("score", 0)
+        tier = get_lead_tier(score)
+        visitor_lines.append(f"Lead score: {score}/100 ({tier})")
         missing = get_missing_fields(lead)
         if missing:
             visitor_lines.append(f"Missing info: {', '.join(missing)}")

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Redis (optional — empty = skip rate limiting)
     redis_url: str = ""
 
+    # Auth (required in production — empty = no auth in dev)
+    api_user: str = ""
+    api_pass: str = ""
+
     # Budget
     daily_budget: float = 50.0
     per_conversation_budget: float = 0.50

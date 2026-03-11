@@ -44,8 +44,8 @@ def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
 
 # ── API calls ─────────────────────────────────────────────────
 
-def call_haiku(system_prompt: str, user_message: str) -> Optional[str]:
-    """Call Claude Haiku (cheap, fast). Returns None on failure."""
+def call_haiku(system_prompt: str, user_message: str) -> tuple[Optional[str], float]:
+    """Call Claude Haiku (cheap, fast). Returns (text, cost) — (None, 0) on failure."""
     return _call_model(
         model=settings.claude_haiku_model,
         system_prompt=system_prompt,
@@ -55,8 +55,8 @@ def call_haiku(system_prompt: str, user_message: str) -> Optional[str]:
     )
 
 
-def call_sonnet(system_prompt: str, user_message: str) -> Optional[str]:
-    """Call Claude Sonnet (expensive, smarter). Returns None on failure."""
+def call_sonnet(system_prompt: str, user_message: str) -> tuple[Optional[str], float]:
+    """Call Claude Sonnet (expensive, smarter). Returns (text, cost) — (None, 0) on failure."""
     return _call_model(
         model=settings.claude_sonnet_model,
         system_prompt=system_prompt,
@@ -68,13 +68,14 @@ def call_sonnet(system_prompt: str, user_message: str) -> Optional[str]:
 
 def classify_intent(message: str) -> Optional[str]:
     """Classify message intent using Haiku. Returns raw category string."""
-    return _call_model(
+    text, _cost = _call_model(
         model=settings.claude_haiku_model,
         system_prompt=CLASSIFIER_PROMPT,
         user_message=message,
         max_tokens=20,
         temperature=0,
     )
+    return text
 
 
 def _call_model(
@@ -106,14 +107,14 @@ def _call_model(
             f"Claude | model={model} in={input_tokens} out={output_tokens} "
             f"cost=${cost:.6f} time={elapsed}s"
         )
-        return text
+        return text, cost
 
     except anthropic.APITimeoutError:
         logger.error(f"Claude timeout ({settings.claude_timeout}s) model={model}")
-        return None
+        return None, 0.0
     except anthropic.APIError as e:
         logger.error(f"Claude API error: {e}")
-        return None
+        return None, 0.0
     except Exception as e:
         logger.error(f"Claude unexpected error: {e}")
-        return None
+        return None, 0.0

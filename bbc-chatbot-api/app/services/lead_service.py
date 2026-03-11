@@ -68,6 +68,15 @@ async def update_lead_from_entities(conversation_id: str, entities: dict) -> Non
         if conv_payload:
             await _run_sync(lambda: db_client.table("conversations").update(conv_payload).eq("id", conversation_id).execute())
 
+        # Update lead with route/travel entities
+        lead_payload: dict = {}
+        if entities.get("origin"):       lead_payload["origin_code"]      = entities["origin"]
+        if entities.get("destination"):  lead_payload["destination_code"] = entities["destination"]
+        if entities.get("passengers"):   lead_payload["passengers"]       = entities["passengers"]
+        if entities.get("cabin_class"):  lead_payload["cabin_class"]      = entities["cabin_class"]
+        if lead_payload:
+            await _run_sync(lambda: db_client.table("leads").update(lead_payload).eq("id", lead_id).execute())
+
         # Recalculate score
         lead_res = await _run_sync(lambda: db_client.table("leads").select("*").eq("id", lead_id).single().execute())
         conv_res = await _run_sync(lambda: db_client.table("conversations").select("visitor_name,visitor_email,visitor_phone").eq("id", conversation_id).single().execute())

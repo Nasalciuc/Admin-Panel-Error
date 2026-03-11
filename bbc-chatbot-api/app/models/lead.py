@@ -1,67 +1,50 @@
-"""Lead and scoring schemas."""
+"""Lead schemas — aligned with DB schema V10 leads table.
+Single source of truth for lead scoring: lead_service.py._calculate_score()
+"""
 
-from pydantic import BaseModel
-from typing import Optional, Literal
-from datetime import datetime
-
-
-class Lead(BaseModel):
-    id: str
-    conversation_id: str
-    name: Optional[str] = None          # +20 points
-    email: Optional[str] = None         # +20 points
-    phone: Optional[str] = None         # +25 points
-    route: Optional[str] = None         # +10 points (e.g. "JFK → LHR")
-    travel_dates: Optional[str] = None  # +10 points
-    passengers: Optional[int] = None    # +5 points
-    cabin_class: Optional[str] = None   # +5 points
-    notes: Optional[str] = None
-    score: int = 0                      # 0-100, computed
-    tier: Literal["bronze", "silver", "gold"] = "bronze"
-    created_at: datetime
-    updated_at: datetime
-
-
-def calculate_lead_score(lead: Lead) -> int:
-    """Rule-based scoring: name(20) + email(20) + phone(25) + route(10)
-    + dates(10) + passengers(5) + cabin(5) = max 95 from fields."""
-    score = 0
-    if lead.name:
-        score += 20
-    if lead.email:
-        score += 20
-    if lead.phone:
-        score += 25
-    if lead.route:
-        score += 10
-    if lead.travel_dates:
-        score += 10
-    if lead.passengers:
-        score += 5
-    if lead.cabin_class:
-        score += 5
-    return min(score, 100)
+from typing import Optional
 
 
 def get_lead_tier(score: int) -> str:
-    if score >= 71:
+    """Convert numeric score to tier label."""
+    if score >= 80:
         return "gold"
-    if score >= 41:
+    if score >= 50:
         return "silver"
     return "bronze"
 
 
-def get_missing_fields(lead: Lead) -> list[str]:
-    """Return list of fields the AI should try to collect next."""
+def get_missing_fields(lead_dict: dict, conv_dict: Optional[dict] = None) -> list[str]:
+    """Return list of fields the AI should try to collect next.
+    Works with raw dicts from Supabase — NOT Pydantic models.
+    """
+    conv = conv_dict or {}
     missing: list[str] = []
-    if not lead.phone:
+
+    has_phone = bool(
+        lead_dict.get("visitor_phone") or conv.get("visitor_phone")
+    )
+    has_route = bool(
+        lead_dict.get("origin_code") and lead_dict.get("destination_code")
+    )
+    has_dates = bool(lead_dict.get("departure_date"))
+    has_name = bool(
+        lead_dict.get("visitor_name") or conv.get("visitor_name")
+    )
+    has_email = bool(
+        lead_dict.get("visitor_email") or conv.get("visitor_email")
+    )
+
+    # Priority order: phone (highest value) → route → dates → name → email
+    if not has_phone:
         missing.append("phone number")
-    if not lead.route:
+    if not has_route:
         missing.append("route")
-    if not lead.travel_dates:
+    if not has_dates:
         missing.append("travel dates")
-    if not lead.name:
+    if not has_name:
         missing.append("name")
-    if not lead.email:
+    if not has_email:
         missing.append("email")
+
     return missing
