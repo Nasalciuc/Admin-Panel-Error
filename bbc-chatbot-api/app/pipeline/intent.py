@@ -26,13 +26,13 @@ class Intent(str, Enum):
 # Ordered: most specific → most generic
 INTENT_PATTERNS: list[tuple[Intent, re.Pattern]] = [
     (Intent.TALK_TO_AGENT, re.compile(r"(talk|speak|connect).*(agent|human|person|someone)", re.I)),
-    (Intent.NEW_BOOKING, re.compile(r"(book|fly|flight|ticket|travel|trip)\b", re.I)),
-    (Intent.PRICE_INQUIRY, re.compile(r"(price|cost|how much|rate|fare|cheap|expensive|afford)", re.I)),
-    (Intent.BOOKING_CHANGE, re.compile(r"(change|cancel|modify|reschedule|refund)", re.I)),
-    (Intent.BAGGAGE_INFO, re.compile(r"(baggage|luggage|bag|carry.on|checked|weight)", re.I)),
-    (Intent.ROUTE_INFO, re.compile(r"(route|airline|nonstop|direct|duration|long)", re.I)),
     (Intent.GREETING, re.compile(r"^(hi|hello|hey|good\s+(morning|afternoon|evening)|howdy)\b", re.I)),
     (Intent.CLOSING, re.compile(r"(thank|bye|goodbye|see\s+you|that.?s\s+all)", re.I)),
+    (Intent.BOOKING_CHANGE, re.compile(r"(change|cancel|modify|reschedule|refund)", re.I)),
+    (Intent.BAGGAGE_INFO, re.compile(r"(baggage|luggage|bag|carry.on|checked|weight)", re.I)),
+    (Intent.PRICE_INQUIRY, re.compile(r"(price|cost|how much|rate|fare|cheap|expensive|afford)", re.I)),
+    (Intent.NEW_BOOKING, re.compile(r"(book|booking|fly(?!\s+direct)|flying|flight|tickets?|travel|trips?|help|want|need)\b", re.I)),
+    (Intent.ROUTE_INFO, re.compile(r"(route|airline|nonstop|direct|duration|how\s+long)", re.I)),
 ]
 
 # Map Claude's response text to our Intent enum

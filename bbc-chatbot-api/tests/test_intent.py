@@ -2,6 +2,8 @@
 
 import sys
 import os
+from unittest.mock import patch
+import pytest
 
 # Ensure project root is on sys.path so imports resolve
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -11,7 +13,17 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_KEY", "test-key")
 
-from app.pipeline.intent import detect_intent, Intent, INTENT_PATTERNS
+# Mock Claude to prevent API calls — always return None (forces fallback to GENERAL_QUESTION)
+with patch("app.ai.claude.classify_intent", return_value=None):
+    from app.pipeline.intent import detect_intent, Intent, INTENT_PATTERNS
+
+
+# Pytest fixture to mock Claude for all tests
+@pytest.fixture(autouse=True)
+def mock_claude():
+    """Mock Claude classify_intent to return None for all tests."""
+    with patch("app.ai.claude.classify_intent", return_value=None):
+        yield
 
 
 # ── Regex pattern tests ───────────────────────────────────────
