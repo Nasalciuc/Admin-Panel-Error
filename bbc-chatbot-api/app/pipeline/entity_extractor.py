@@ -10,6 +10,7 @@ Those are V2 (Claude-based extraction).
 import re
 import logging
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ class ExtractedEntities:
     destination_code: Optional[str] = None
     passengers: Optional[int] = None
     cabin_class: Optional[str] = None
+    departure_date: Optional[str] = None   # YYYY-MM-DD
+    return_date: Optional[str] = None      # YYYY-MM-DD
 
 
 # ── Patterns ──────────────────────────────────────────────────
@@ -76,6 +79,105 @@ ROUTE_RE = re.compile(
     r'(?:from|departing|leaving|flying)\s+([\w\s]{2,25}?)\s+(?:to|→|->|–)\s+([\w\s]{2,25}?)(?:\s|$|[,.])',
     re.I,
 )
+
+# ── Date extraction ───────────────────────────────────────────
+
+MONTH_NAMES = {
+    "january": 1, "jan": 1, "february": 2, "feb": 2,
+    "march": 3, "mar": 3, "april": 4, "apr": 4,
+    "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+    "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
+    "october": 10, "oct": 10, "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+}
+
+_MONTH_PAT = '|'.join(MONTH_NAMES.keys())
+
+# "March 15", "Mar 15th", "15 March", "15th of March", "March 15, 2026"
+_DATE_MONTH_DAY = re.compile(
+    r'\b(?:'
+    r'(?P<m1>' + _MONTH_PAT + r')\s+(?P<d1>\d{1,2})(?:st|nd|rd|th)?'
+    r'|(?P<d2>\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?P<m2>' + _MONTH_PAT + r')'
+    r')(?:\s*,?\s*(?P<y>\d{4}))?',
+    re.I
+)
+
+# "3/15", "3/15/2026", "03-15-2026"
+_DATE_NUMERIC = re.compile(r'\b(?P<m>\d{1,2})[/\-](?P<d>\d{1,2})(?:[/\-](?P<y>\d{4}))?\b')
+
+# "March 15-22" (same month range with dash)
+_DATE_RANGE_DASH = re.compile(
+    r'\b(?P<m>' + _MONTH_PAT + r')\s+(?P<d1>\d{1,2})(?:st|nd|rd|th)?'
+    r'\s*[-–]\s*(?P<d2>\d{1,2})(?:st|nd|rd|th)?',
+    re.I
+)
+
+
+def _resolve_year(month: int) -> int:
+    """If month is in the past relative to today, assume next year."""
+    today = date.today()
+    return today.year + 1 if month < today.month else today.year
+
+
+def _make_date(month: int, day: int, year: int | None = None) -> str | None:
+    """Create YYYY-MM-DD string. Returns None if date is invalid (e.g. Feb 30)."""
+    try:
+        return date(year or _resolve_year(month), month, day).isoformat()
+    except (ValueError, OverflowError):
+        return None
+
+
+def _extract_dates(text: str) -> tuple[str | None, str | None]:
+    """Extract departure and optional return date from message text.
+    Returns (departure_date, return_date) as YYYY-MM-DD strings or None.
+    Only handles ABSOLUTE dates. Does NOT handle relative dates like 'next Monday'.
+    """
+    # 1. Same-month range: "March 15-22"
+    m = _DATE_RANGE_DASH.search(text)
+    if m:
+        month = MONTH_NAMES.get(m.group("m").lower())
+        if month:
+            dep = _make_date(month, int(m.group("d1")))
+            ret = _make_date(month, int(m.group("d2")))
+            if dep:
+                return dep, ret
+
+    # 2. Named dates: "March 15", "15th March", "June 10, 2026"
+    matches = list(_DATE_MONTH_DAY.finditer(text))
+    if matches:
+        dates = []
+        for match in matches[:2]:
+            m_name = (match.group("m1") or match.group("m2") or "").lower()
+            day_val = int(match.group("d1") or match.group("d2") or "0")
+            year_val = int(match.group("y")) if match.group("y") else None
+            month_val = MONTH_NAMES.get(m_name)
+            if month_val and day_val:
+                d = _make_date(month_val, day_val, year_val)
+                if d:
+                    dates.append(d)
+        if len(dates) >= 2:
+            return dates[0], dates[1]
+        if len(dates) == 1:
+            return dates[0], None
+
+    # 3. Numeric: "3/15", "3/15/2026"
+    matches = list(_DATE_NUMERIC.finditer(text))
+    if matches:
+        dates = []
+        for match in matches[:2]:
+            m_val, d_val = int(match.group("m")), int(match.group("d"))
+            y_val = int(match.group("y")) if match.group("y") else None
+            if 1 <= m_val <= 12 and 1 <= d_val <= 31:
+                d = _make_date(m_val, d_val, y_val)
+                if d:
+                    dates.append(d)
+        if len(dates) >= 2:
+            return dates[0], dates[1]
+        if len(dates) == 1:
+            return dates[0], None
+
+    return None, None
+
 
 # ── Stopwords for KB search ───────────────────────────────────
 STOPWORDS = frozenset({
@@ -144,7 +246,15 @@ def extract_entities(message: str) -> ExtractedEntities:
     if m:
         entities.cabin_class = CABIN_MAP.get(m.group(1).lower().strip(), "business")
 
-    found = [k for k in ["email", "phone", "name", "origin_code", "destination_code", "passengers", "cabin_class"]
+    # 8. Dates
+    dep, ret = _extract_dates(text)
+    if dep:
+        entities.departure_date = dep
+    if ret:
+        entities.return_date = ret
+
+    found = [k for k in ["email", "phone", "name", "origin_code", "destination_code",
+                          "passengers", "cabin_class", "departure_date", "return_date"]
              if getattr(entities, k) is not None]
     if found:
         logger.info(f"Entities extracted: {', '.join(found)}")

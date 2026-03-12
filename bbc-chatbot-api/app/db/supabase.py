@@ -388,6 +388,24 @@ async def create_pipeline_run(payload: dict) -> Optional[dict]:
         return None
 
 
+async def get_today_cost() -> float:
+    """Total AI cost today. One query, used by budget guard."""
+    try:
+        db = get_client()
+        now = datetime.now(timezone.utc)
+        today_str = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        res = await _run_sync(
+            lambda: db.table("pipeline_runs")
+            .select("cost")
+            .gte("created_at", today_str)
+            .execute()
+        )
+        return sum(float(r.get("cost", 0)) for r in (res.data or []))
+    except Exception as e:
+        logger.warning(f"get_today_cost error: {e}")
+        return 0.0
+
+
 # ════════════════════════════════════════════════════════════════
 # ADMIN — DASHBOARD STATS
 # ════════════════════════════════════════════════════════════════

@@ -3,7 +3,7 @@
 # Usage: docker build -t bbc-api . && docker run --env-file .env -p 8000:8000 bbc-api
 
 # ── Stage 1: Install dependencies ────────────────────────────
-FROM python:3.13-slim AS deps
+FROM python:3.11-slim AS deps
 WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \

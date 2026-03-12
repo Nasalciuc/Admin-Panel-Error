@@ -151,3 +151,40 @@ class TestLoopPrevention:
         text_lower = res.text.lower()
         # Should NOT ask phone again — fall to email or AI
         assert "phone" not in text_lower or "email" in text_lower or "specialist" in text_lower
+
+
+class TestBudgetGuard:
+    """Budget guard should skip AI when daily budget is exceeded."""
+
+    def test_budget_exceeded_uses_fallback(self):
+        res = generate_response(
+            intent=Intent.NEW_BOOKING, entities={"_raw_message": "test"},
+            kb_results=[], visitor=VisitorInfo(), lead=None,
+            history=[], tunnel="sales", budget_remaining=-5.0,
+        )
+        assert res.model_used == "template"
+        assert "specialist" in res.text.lower() or "connect" in res.text.lower()
+
+    def test_budget_ok_proceeds(self):
+        res = generate_response(
+            intent=Intent.NEW_BOOKING, entities={"_raw_message": "test"},
+            kb_results=[], visitor=VisitorInfo(), lead=None,
+            history=[], tunnel="sales", budget_remaining=25.0,
+        )
+        assert res.model_used == "template"
+
+    def test_budget_none_proceeds(self):
+        res = generate_response(
+            intent=Intent.NEW_BOOKING, entities={"_raw_message": "test"},
+            kb_results=[], visitor=VisitorInfo(), lead=None,
+            history=[], tunnel="sales",
+        )
+        assert res.model_used == "template"
+
+    def test_budget_zero_triggers_guard(self):
+        res = generate_response(
+            intent=Intent.NEW_BOOKING, entities={"_raw_message": "test"},
+            kb_results=[], visitor=VisitorInfo(), lead=None,
+            history=[], tunnel="sales", budget_remaining=0.0,
+        )
+        assert res.model_used == "template"

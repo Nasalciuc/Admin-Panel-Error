@@ -106,6 +106,8 @@ async def _pipeline(
         "destination": extracted.destination_code,
         "passengers": extracted.passengers,
         "cabin_class": extracted.cabin_class,
+        "departure_date": extracted.departure_date,
+        "return_date": extracted.return_date,
     }
 
     # Update lead with all extracted entities
@@ -138,6 +140,9 @@ async def _pipeline(
     history = await db.get_recent_messages(cid, limit=5)
     lead = await lead_service.get_or_create_lead(cid)
 
+    today_cost = await db.get_today_cost()
+    budget_remaining = settings.daily_budget - today_cost
+
     gen = generate_response(
         intent=intent,
         entities=entities,
@@ -146,6 +151,7 @@ async def _pipeline(
         lead=lead,
         history=history,
         tunnel=tunnel,
+        budget_remaining=budget_remaining,
     )
     logger.info(f"[{cid}] Generated via {gen.model_used} | cost=${gen.cost:.4f}")
 

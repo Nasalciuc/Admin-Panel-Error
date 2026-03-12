@@ -50,7 +50,7 @@ async def update_lead_from_entities(conversation_id: str, entities: dict) -> Non
 
         res = await _run_sync(lambda: db_client.table("leads").select("id,score").eq("conversation_id", conversation_id).limit(1).execute())
         if not res.data:
-            has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination"])
+            has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination", "departure_date"])
             if not has_useful:
                 return
             lead_res = await _run_sync(lambda: db_client.table("leads").insert({"conversation_id": conversation_id}).execute())
@@ -72,8 +72,10 @@ async def update_lead_from_entities(conversation_id: str, entities: dict) -> Non
         lead_payload: dict = {}
         if entities.get("origin"):       lead_payload["origin_code"]      = entities["origin"]
         if entities.get("destination"):  lead_payload["destination_code"] = entities["destination"]
-        if entities.get("passengers"):   lead_payload["passengers"]       = entities["passengers"]
-        if entities.get("cabin_class"):  lead_payload["cabin_class"]      = entities["cabin_class"]
+        if entities.get("passengers"):      lead_payload["passengers"]       = entities["passengers"]
+        if entities.get("cabin_class"):     lead_payload["cabin_class"]      = entities["cabin_class"]
+        if entities.get("departure_date"):  lead_payload["departure_date"]   = entities["departure_date"]
+        if entities.get("return_date"):     lead_payload["return_date"]      = entities["return_date"]
         if lead_payload:
             await _run_sync(lambda: db_client.table("leads").update(lead_payload).eq("id", lead_id).execute())
 

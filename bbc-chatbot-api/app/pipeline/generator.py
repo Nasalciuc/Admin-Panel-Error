@@ -79,6 +79,7 @@ def generate_response(
     lead: Optional[dict],
     history: list[dict],
     tunnel: str,
+    budget_remaining: Optional[float] = None,
 ) -> GeneratedResponse:
     """Decision tree for response generation.
 
@@ -229,6 +230,14 @@ def generate_response(
                     if text:
                         logger.info("Smart routing: ask_name")
                         return GeneratedResponse(text=text, model_used="template")
+
+    # ── 4.9 Budget guard ─────────────────────────────────────
+    if budget_remaining is not None and budget_remaining <= 0:
+        logger.warning(f"Daily budget exceeded (remaining=${budget_remaining:.2f}) — skipping AI")
+        text = get_template("ai_fallback", tunnel, visitor) or (
+            "Let me connect you with a specialist who can help with that right away."
+        )
+        return GeneratedResponse(text=text, model_used="template")
 
     # 5. AI generation
     system_prompt = build_conversational_prompt(

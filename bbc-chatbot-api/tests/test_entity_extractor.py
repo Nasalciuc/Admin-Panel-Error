@@ -144,3 +144,65 @@ class TestKBKeywords:
     def test_airport_codes_boosted(self):
         kw = extract_kb_keywords("flights from JFK to LHR nonstop")
         assert kw[0] == "jfk" or kw[1] == "lhr"
+
+
+class TestDateExtraction:
+    """Test date extraction from chat messages."""
+
+    def test_month_day(self):
+        e = extract_entities("I want to fly March 15")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-03-15")
+
+    def test_month_abbreviated(self):
+        e = extract_entities("Departing Mar 20")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-03-20")
+
+    def test_day_month_inverted(self):
+        e = extract_entities("Leaving on 15th March")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-03-15")
+
+    def test_numeric_with_year(self):
+        e = extract_entities("Flying 3/15/2026")
+        assert e.departure_date == "2026-03-15"
+
+    def test_numeric_no_year(self):
+        e = extract_entities("Travel on 3/15")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-03-15")
+
+    def test_range_dash(self):
+        e = extract_entities("March 15-22 business class")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-03-15")
+        assert e.return_date is not None
+        assert e.return_date.endswith("-03-22")
+
+    def test_month_day_with_year(self):
+        e = extract_entities("June 10, 2026")
+        assert e.departure_date == "2026-06-10"
+
+    def test_no_dates(self):
+        e = extract_entities("I need a flight to London")
+        assert e.departure_date is None
+        assert e.return_date is None
+
+    def test_ordinal(self):
+        e = extract_entities("Departing on the 3rd of April")
+        assert e.departure_date is not None
+        assert e.departure_date.endswith("-04-03")
+
+    def test_combined_with_route(self):
+        e = extract_entities("JFK to LHR March 15-22 business class for 2 passengers")
+        assert e.origin_code == "JFK"
+        assert e.destination_code == "LHR"
+        assert e.departure_date is not None
+        assert e.return_date is not None
+        assert e.cabin_class == "business"
+        assert e.passengers == 2
+
+    def test_invalid_date_ignored(self):
+        e = extract_entities("Flying on February 30")
+        assert e.departure_date is None
