@@ -62,6 +62,7 @@ export const appVersions: AppVersion[] = [
 ]
 
 export interface DeviceUsage {
+    [key: string]: unknown
   device: string
   percentage: number
   color: string
