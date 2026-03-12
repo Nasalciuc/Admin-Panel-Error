@@ -114,7 +114,7 @@ export function ConversationsTrend({
                 border: '1px solid #e5e7eb',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               }}
-              labelFormatter={(d: string) =>
+              labelFormatter={(d: any) =>
                 new Date(d).toLocaleDateString('en-US', {
                   weekday: 'short',
                   month: 'short',
