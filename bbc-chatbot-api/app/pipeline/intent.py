@@ -75,7 +75,7 @@ def detect_intent(message: str, metadata: Optional[dict] = None) -> Intent:
 
     # 3. Claude Haiku fallback
     logger.debug("No regex match — calling Claude classifier")
-    raw = claude_classify(message)
+    raw, _cls_cost = claude_classify(message)
     if raw:
         intent = _parse_claude_intent(raw)
         logger.info(f"Intent from Claude: {intent.value} (raw={raw!r})")

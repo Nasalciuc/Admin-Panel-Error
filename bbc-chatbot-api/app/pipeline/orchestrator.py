@@ -111,7 +111,7 @@ async def _pipeline(
     }
 
     # Update lead with all extracted entities
-    has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination"])
+    has_useful = any(entities.get(k) for k in ["name", "email", "phone", "origin", "destination", "departure_date"])
     if has_useful:
         await lead_service.update_lead_from_entities(cid, entities)
         logger.info(f"[{cid}] Entities: {', '.join(k for k, v in entities.items() if v and k != '_raw_message')}")

@@ -157,11 +157,26 @@ export function deleteKBEntry(id: string): Promise<void> {
 }
 
 // ── Chat (used by widget / playground) ────────────────────────
+export interface ChatResponse {
+  conversation_id: string
+  message: string
+  type: string       // "template" | "ai" | "template_fallback"
+  model_used: string
+  cost: number
+  route_card?: {
+    origin: string
+    destination: string
+    airlines?: string
+    duration?: string
+    price_range?: string
+  } | null
+}
+
 export function sendChatMessage(
   conversationId: string | null,
   message: string,
   tunnel: 'sales' | 'support' = 'sales',
-): Promise<{ reply: string; conversation_id: string }> {
+): Promise<ChatResponse> {
   return apiFetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

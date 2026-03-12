@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 _client: Optional[Client] = None
 
 # Dedicated thread pool for sync supabase-py calls (D-01)
-_executor = ThreadPoolExecutor(max_workers=20)
+_executor = ThreadPoolExecutor(max_workers=5)
 
 
 async def _run_sync(fn):
@@ -123,7 +123,9 @@ async def get_recent_messages(conversation_id: str, limit: int = 5) -> list:
 
 
 async def keyword_search_kb(keywords: list[str], tunnel: str = "sales", limit: int = 3) -> list:
-    """V1: full-text search. V2: Qdrant vector search."""
+    """V1: full-text search. V2: Qdrant vector search.
+    Searches both tunnel-specific AND universal ('all') entries.
+    """
     try:
         db = get_client()
         query = " | ".join(keywords)
@@ -132,7 +134,7 @@ async def keyword_search_kb(keywords: list[str], tunnel: str = "sales", limit: i
                 db.table("kb_entries")
                 .select("id,title,content,tunnel")
                 .eq("is_active", True)
-                .eq("tunnel", tunnel)
+                .in_("tunnel", [tunnel, "all"])
                 .text_search("search_vector", query)
                 .execute()
             )

@@ -24,12 +24,10 @@ class GeneratedResponse:
 
 
 def _has_route_data(kb_results: list[KBResult]) -> Optional[KBResult]:
-    """Check if any KB result is a route entry."""
+    """Check if any KB result is a route entry (by content heuristic)."""
+    route_keywords = ["nonstop", "duration", "airlines", "round trip", "fares typically"]
     for result in kb_results:
-        if "routes" in result.source or (
-            any(w in result.content.lower() for w in ["nonstop", "duration", "airlines"])
-            and any(c.isupper() and len(c) == 3 for c in result.title.split())
-        ):
+        if any(w in result.content.lower() for w in route_keywords):
             return result
     return None
 

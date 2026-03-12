@@ -66,16 +66,16 @@ def call_sonnet(system_prompt: str, user_message: str) -> tuple[Optional[str], f
     )
 
 
-def classify_intent(message: str) -> Optional[str]:
-    """Classify message intent using Haiku. Returns raw category string."""
-    text, _cost = _call_model(
+def classify_intent(message: str) -> tuple[Optional[str], float]:
+    """Classify message intent using Haiku. Returns (category_string, cost)."""
+    text, cost = _call_model(
         model=settings.claude_haiku_model,
         system_prompt=CLASSIFIER_PROMPT,
         user_message=message,
         max_tokens=20,
         temperature=0,
     )
-    return text
+    return text, cost
 
 
 def _call_model(
@@ -84,8 +84,8 @@ def _call_model(
     user_message: str,
     max_tokens: int,
     temperature: float,
-) -> Optional[str]:
-    """Internal: make a single Claude API call with logging."""
+) -> tuple[Optional[str], float]:
+    """Internal: make a single Claude API call with logging. Returns (text, cost)."""
     start = time.time()
     try:
         response = _get_client().messages.create(
