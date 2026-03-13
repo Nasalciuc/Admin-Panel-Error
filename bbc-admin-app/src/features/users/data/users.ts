@@ -1,33 +1,52 @@
-import { faker } from '@faker-js/faker'
+// BBC Admin — real team members (connected to Supabase users table in V2)
 
-// Set a fixed seed for consistent data generation
-faker.seed(67890)
-
-export const users = Array.from({ length: 500 }, () => {
-  const firstName = faker.person.firstName()
-  const lastName = faker.person.lastName()
-  return {
-    id: faker.string.uuid(),
-    firstName,
-    lastName,
-    username: faker.internet
-      .username({ firstName, lastName })
-      .toLocaleLowerCase(),
-    email: faker.internet.email({ firstName }).toLocaleLowerCase(),
-    phoneNumber: faker.phone.number({ style: 'international' }),
-    status: faker.helpers.arrayElement([
-      'active',
-      'inactive',
-      'invited',
-      'suspended',
-    ]),
-    role: faker.helpers.arrayElement([
-      'owner',
-      'admin',
-      'sales',
-      'support',
-    ]),
-    createdAt: faker.date.past(),
-    updatedAt: faker.date.recent(),
-  }
-})
+export const users = [
+  {
+    id: 'u-001',
+    firstName: 'Dan',
+    lastName: 'Owner',
+    username: 'dan',
+    email: 'dan@buybusinessclass.com',
+    phoneNumber: '',
+    status: 'active' as const,
+    role: 'owner' as const,
+    createdAt: new Date('2026-01-15'),
+    updatedAt: new Date('2026-03-01'),
+  },
+  {
+    id: 'u-002',
+    firstName: 'Scaler',
+    lastName: 'Dev',
+    username: 'scaler',
+    email: 'scaler@buybusinessclass.com',
+    phoneNumber: '',
+    status: 'active' as const,
+    role: 'admin' as const,
+    createdAt: new Date('2026-01-20'),
+    updatedAt: new Date('2026-03-10'),
+  },
+  {
+    id: 'u-003',
+    firstName: 'Nasalciuc',
+    lastName: 'Dev',
+    username: 'nasalciuc',
+    email: 'nasalciuc@buybusinessclass.com',
+    phoneNumber: '',
+    status: 'active' as const,
+    role: 'admin' as const,
+    createdAt: new Date('2026-02-01'),
+    updatedAt: new Date('2026-03-05'),
+  },
+  {
+    id: 'u-004',
+    firstName: 'Maria',
+    lastName: 'Sales',
+    username: 'maria',
+    email: 'maria@buybusinessclass.com',
+    phoneNumber: '',
+    status: 'active' as const,
+    role: 'sales' as const,
+    createdAt: new Date('2026-02-10'),
+    updatedAt: new Date('2026-03-08'),
+  },
+]
